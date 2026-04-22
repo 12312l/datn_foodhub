@@ -22,4 +22,8 @@ public interface ProductService {
     ProductResponse updateProduct(Long id, ProductRequest request);
     void deleteProduct(Long id);
     String uploadFile(org.springframework.web.multipart.MultipartFile file, String type);
+
+    //Recently Viewed
+    Page<ProductResponse> getRecentlyViewed(Long userId, Pageable pageable);
+    void saveToRecentlyViewed(Long userId, Long productId);
 }

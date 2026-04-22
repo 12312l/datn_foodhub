@@ -42,6 +42,8 @@ public class AIServiceImpl implements AIService {
             return menuContext;
         }
 
+
+
         // Use Gemini for general response
         return callGemini(message, menuContext);
     }
@@ -190,6 +192,9 @@ public class AIServiceImpl implements AIService {
 
             return getFallbackResponse(message, context);
         } catch (Exception e) {
+            // SỬA TẠI ĐÂY:
+            e.printStackTrace(); // Dòng này sẽ in chi tiết lỗi ra màn hình Console của IntelliJ/Eclipse
+
             // Fallback to simple response
             return getFallbackResponse(message, context);
         }

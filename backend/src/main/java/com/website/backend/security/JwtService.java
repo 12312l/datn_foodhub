@@ -1,5 +1,6 @@
 package com.website.backend.security;
 
+import com.website.backend.repository.UserRepository;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -15,12 +16,17 @@ import java.util.function.Function;
 
 @Service
 public class JwtService {
+    private final UserRepository userRepository;
 
     @Value("${jwt.secret}")
     private String secretKey;
 
     @Value("${jwt.expiration}")
     private long jwtExpiration;
+
+    public JwtService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
@@ -40,6 +46,18 @@ public class JwtService {
     }
 
     private String buildToken(Map<String, Object> extraClaims, UserDetails userDetails, long expiration) {
+        if (extraClaims == null) {
+            extraClaims = new java.util.HashMap<>();
+        }
+
+        // Cách an toàn nhất: Tìm lại User từ DB bằng email
+        var user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        extraClaims.put("id", user.getId());
+        extraClaims.put("role", user.getRole()); // Thêm role nếu cần dùng ở frontend
+
+
         return Jwts.builder()
                 .claims(extraClaims)
                 .subject(userDetails.getUsername())

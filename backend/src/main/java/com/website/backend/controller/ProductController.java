@@ -34,10 +34,10 @@ public class ProductController {
         return ResponseEntity.ok(productService.getAllProducts(pageable));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<ProductResponse> getProductById(@PathVariable Long id) {
-        return ResponseEntity.ok(productService.getProductById(id));
-    }
+//    @GetMapping("/{id}")
+//    public ResponseEntity<ProductResponse> getProductById(@PathVariable Long id) {
+//        return ResponseEntity.ok(productService.getProductById(id));
+//    }
 
     @GetMapping("/category/{categoryId}")
     public ResponseEntity<Page<ProductResponse>> getProductsByCategory(
@@ -118,5 +118,28 @@ public class ProductController {
     public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
         productService.deleteProduct(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // --- CHỈNH SỬA TẠI ĐÂY: HÀM DUY NHẤT LẤY CHI TIẾT ---
+    @GetMapping("/{id}")
+    public ResponseEntity<ProductResponse> getProductById(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long userId // Thêm param để lưu lịch sử
+    ) {
+        if (userId != null) {
+            productService.saveToRecentlyViewed(userId, id);
+        }
+        return ResponseEntity.ok(productService.getProductById(id));
+    }
+
+    // --- THÊM MỚI: LẤY DANH SÁCH ĐÃ XEM ---
+    @GetMapping("/recently-viewed")
+    public ResponseEntity<Page<ProductResponse>> getRecentlyViewed(
+            @RequestParam Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size);
+        return ResponseEntity.ok(productService.getRecentlyViewed(userId, pageable));
     }
 }

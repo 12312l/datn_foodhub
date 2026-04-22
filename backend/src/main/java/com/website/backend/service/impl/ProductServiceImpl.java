@@ -7,19 +7,9 @@ import com.website.backend.dto.response.ProductResponse;
 import com.website.backend.dto.response.ProductVariantAttributeResponse;
 import com.website.backend.dto.response.ProductVariantResponse;
 import com.website.backend.dto.response.ReviewResponse;
-import com.website.backend.entity.Category;
-import com.website.backend.entity.Product;
-import com.website.backend.entity.ProductMedia;
-import com.website.backend.entity.ProductVariant;
-import com.website.backend.entity.ProductVariantAttribute;
-import com.website.backend.entity.Review;
+import com.website.backend.entity.*;
 import com.website.backend.exception.CustomException;
-import com.website.backend.repository.CartItemRepository;
-import com.website.backend.repository.CategoryRepository;
-import com.website.backend.repository.ProductMediaRepository;
-import com.website.backend.repository.ProductRepository;
-import com.website.backend.repository.ProductVariantRepository;
-import com.website.backend.repository.ReviewRepository;
+import com.website.backend.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -49,6 +39,10 @@ public class ProductServiceImpl implements com.website.backend.service.ProductSe
     private final ProductMediaRepository productMediaRepository;
     private final ProductVariantRepository productVariantRepository;
     private final CartItemRepository cartItemRepository;
+
+    // ... các repository khác
+    private final RecentlyViewedRepository recentlyViewedRepository;
+    private final com.website.backend.repository.UserRepository userRepository;
 
     @Value("${app.upload.path:uploads}")
     private String uploadPath;
@@ -457,5 +451,26 @@ public class ProductServiceImpl implements com.website.backend.service.ProductSe
                 .comment(review.getComment())
                 .createdAt(review.getCreatedAt())
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ProductResponse> getRecentlyViewed(Long userId, Pageable pageable) {
+        return recentlyViewedRepository.findByUserIdOrderByViewedAtDesc(userId, pageable)
+                .map(history -> mapToResponse(history.getProduct()));
+    }
+
+    @Override
+    @Transactional
+    public void saveToRecentlyViewed(Long userId, Long productId) {
+        RecentlyViewed history = recentlyViewedRepository
+                .findByUserIdAndProductId(userId, productId)
+                .orElseGet(() -> RecentlyViewed.builder()
+                        .user(userRepository.getReferenceById(userId))
+                        .product(productRepository.getReferenceById(productId))
+                        .build());
+
+        history.setViewedAt(java.time.LocalDateTime.now());
+        recentlyViewedRepository.save(history);
     }
 }

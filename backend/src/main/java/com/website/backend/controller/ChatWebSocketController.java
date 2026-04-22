@@ -35,6 +35,7 @@ public class ChatWebSocketController {
         return message;
     }
 
+
     @MessageMapping("/chat.addUser")
     @SendTo("/topic/public")
     public ChatMessage addUser(@Payload ChatMessage message) {
