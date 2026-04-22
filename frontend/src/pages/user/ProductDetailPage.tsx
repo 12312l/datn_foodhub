@@ -6,6 +6,7 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/user/Toast';
 import { Product, Review, ProductImage, ProductVariant } from '../../types';
+import { jwtDecode } from 'jwt-decode';
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -26,13 +27,64 @@ const ProductDetailPage: React.FC = () => {
     loadProduct();
   }, [id, isAuthenticated]);
 
+  // const loadProduct = async () => {
+  //   setIsLoading(true);
+  //   try {
+  //     const [productRes, reviewsRes] = await Promise.all([
+  //       productAPI.getById(parseInt(id!)),
+  //       reviewAPI.getByProduct(parseInt(id!), { page: 0, size: 10 }),
+  //     ]);
+  //     setProduct(productRes.data);
+  //     setReviews(reviewsRes.data.content);
+
+  //     if (productRes.data.variants && productRes.data.variants.length > 0) {
+  //       const defaultIndex = productRes.data.variants.findIndex((v: ProductVariant) => v.isDefault);
+  //       setSelectedVariantIndex(defaultIndex >= 0 ? defaultIndex : 0);
+  //     }
+
+  //     // Check if product is favorite
+  //     if (isAuthenticated) {
+  //       try {
+  //         const favRes = await favoriteAPI.check(parseInt(id!));
+  //         setIsFavorite(favRes.data);
+  //       } catch (e) {
+  //         // User not logged in or error
+  //       }
+  //     }
+
+  //     // Load related products
+  //     if (productRes.data.categoryId) {
+  //       const relatedRes = await productAPI.getByCategory(productRes.data.categoryId, { page: 0, size: 4 });
+  //       setRelatedProducts(relatedRes.data.content.filter((p: Product) => p.id !== parseInt(id!)));
+  //     }
+  //   } catch (error) {
+  //     console.error('Error loading product:', error);
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
+
   const loadProduct = async () => {
     setIsLoading(true);
     try {
+      // 1. Lấy userId từ Token trước khi gọi API
+      const token = localStorage.getItem('token');
+      let userId: number | null = null;
+      if (token) {
+        try {
+          const decoded: any = jwtDecode(token);
+          userId = decoded.id; // Lấy ID từ token mới bạn đã sửa ở Backend
+        } catch (e) {
+          console.error("Token decode error:", e);
+        }
+      }
+
+      // 2. Truyền userId vào getById để Backend lưu vào bảng recently_viewed
       const [productRes, reviewsRes] = await Promise.all([
-        productAPI.getById(parseInt(id!)),
+        productAPI.getById(parseInt(id!), userId || undefined), // userId truyền vào đây
         reviewAPI.getByProduct(parseInt(id!), { page: 0, size: 10 }),
       ]);
+
       setProduct(productRes.data);
       setReviews(reviewsRes.data.content);
 
@@ -46,9 +98,7 @@ const ProductDetailPage: React.FC = () => {
         try {
           const favRes = await favoriteAPI.check(parseInt(id!));
           setIsFavorite(favRes.data);
-        } catch (e) {
-          // User not logged in or error
-        }
+        } catch (e) {}
       }
 
       // Load related products
@@ -62,7 +112,7 @@ const ProductDetailPage: React.FC = () => {
       setIsLoading(false);
     }
   };
-
+  
   const handleAddToCart = async () => {
     if (product) {
       const selectedVariant = product.variants?.[selectedVariantIndex];

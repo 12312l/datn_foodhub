@@ -55,7 +55,10 @@ export const authAPI = {
 export const productAPI = {
   getAll: (params?: { page?: number; size?: number; sortBy?: string; sortDir?: string }) =>
     api.get('/products', { params }),
-  getById: (id: number) => api.get(`/products/${id}`),
+  // getById: (id: number) => api.get(`/products/${id}`),
+  // 1. CẬP NHẬT: Thêm userId để Backend ghi nhận lịch sử khi xem chi tiết
+  getById: (id: number, userId?: number) => 
+    api.get(`/products/${id}`, { params: { userId } }),
   getByCategory: (categoryId: number, params?: { page?: number; size?: number }) =>
     api.get(`/products/category/${categoryId}`, { params }),
   getFeatured: (params?: { page?: number; size?: number }) =>
@@ -67,6 +70,10 @@ export const productAPI = {
   getTopSelling: (limit?: number) => api.get('/products/top-selling', { params: { limit } }),
   getTopRated: (limit?: number) => api.get('/products/top-rated', { params: { limit } }),
   getRecommended: (userId?: number) => api.get('/products/recommended', { params: { userId } }),
+
+  // 2. THÊM MỚI: Lấy danh sách sản phẩm đã xem gần đây
+  getRecentlyViewed: (userId: number, params?: { page?: number; size?: number }) =>
+    api.get('/products/recently-viewed', { params: { userId, ...params } }),
 };
 
 // Admin Products API

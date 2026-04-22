@@ -3,29 +3,78 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Star, Search } from 'lucide-react';
 import { productAPI, categoryAPI } from '../../services/api';
 import { Product, Category } from '../../types';
+import { jwtDecode } from 'jwt-decode'; // Thêm import này
 
 const HomePage: React.FC = () => {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [newProducts, setNewProducts] = useState<Product[]>([]);
+  const [recentProducts, setRecentProducts] = useState<Product[]>([]); // State mới cho món đã xem
   const [categories, setCategories] = useState<Category[]>([]);
   const [searchKeyword, setSearchKeyword] = useState('');
 
+  // Giả sử bạn lưu thông tin user trong localStorage sau khi login
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
   useEffect(() => {
     loadData();
   }, []);
 
+  // const loadData = async () => {
+  //   try {
+  //     const [featuredRes, newRes, categoriesRes] = await Promise.all([
+  //       productAPI.getTopSelling(8),
+  //       productAPI.getTopRated(8),
+  //       categoryAPI.getAll(),
+  //     ]);
+  //     setFeaturedProducts(featuredRes.data);
+  //     setNewProducts(newRes.data);
+  //     setCategories(categoriesRes.data);
+
+  //     // Chỉ gọi API món đã xem nếu User đã đăng nhập
+  //     if (user && user.id) {
+  //       const recentRes = await productAPI.getRecentlyViewed(user.id, { size: 4 });
+  //       console.log("Dữ liệu món đã xem:", recentRes.data); // Xem nó hiện ra gì ở Tab Console
+  //       setRecentProducts(recentRes.data.content); // Lấy từ .content vì Backend trả về Page
+  //     }
+
+  //   } catch (error) {
+  //     console.error('Error loading data:', error);
+  //   }
+  // };
+
   const loadData = async () => {
     try {
+      // 1. Lấy và giải mã Token để có userId
+      const token = localStorage.getItem('token');
+      let userId: number | null = null;
+      if (token) {
+        try {
+          const decoded: any = jwtDecode(token);
+          userId = decoded.id; // Field 'id' chúng ta vừa thêm ở Backend
+        } catch (e) {
+          console.error("Token invalid");
+        }
+      }
+
+      // 2. Gọi song song các API mặc định
       const [featuredRes, newRes, categoriesRes] = await Promise.all([
         productAPI.getTopSelling(8),
         productAPI.getTopRated(8),
         categoryAPI.getAll(),
       ]);
+
       setFeaturedProducts(featuredRes.data);
       setNewProducts(newRes.data);
       setCategories(categoriesRes.data);
+
+      // 3. Gọi API món đã xem nếu user đã login
+      if (userId) {
+        const recentRes = await productAPI.getRecentlyViewed(userId, { size: 4 });
+        if (recentRes.data && recentRes.data.content) {
+          setRecentProducts(recentRes.data.content);
+        }
+      }
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Error loading home data:', error);
     }
   };
 
@@ -158,8 +207,48 @@ const HomePage: React.FC = () => {
           ))}
         </div>
       </div>
-    </div>
-  );
-};
+
+    {/* History Products */}
+    {recentProducts && recentProducts.length > 0 && (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 border-t border-gray-100">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Món bạn vừa xem</h2>
+            <p className="text-sm text-gray-500">Dựa trên lịch sử duyệt web của bạn</p>
+          </div>
+          <Link to="/products" className="text-primary-500 hover:underline flex items-center font-medium">
+            Xem thực đơn <ArrowRight className="w-4 h-4 ml-1" />
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          {recentProducts.map((product) => (
+            <Link 
+              key={`recent-${product.id}`} 
+              to={`/products/${product.id}`} 
+              className="card hover:shadow-lg transition-all duration-300 group"
+            >
+              <div className="relative overflow-hidden rounded-lg">
+                <img
+                  src={product.imageUrl || 'https://via.placeholder.com/300'}
+                  alt={product.name}
+                  className="w-full h-40 object-cover mb-3 group-hover:scale-105 transition-transform duration-300"
+                />
+              </div>
+              <h3 className="font-semibold mb-1 truncate text-gray-800">{product.name}</h3>
+              <div className="flex items-center mb-2">
+                <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+                <span className="text-sm text-gray-600 font-medium">{product.rating || 0}</span>
+              </div>
+              <p className="text-primary-600 font-bold">
+                {product.price ? product.price.toLocaleString('vi-VN') : 0} đ
+              </p>
+            </Link>
+          ))}
+        </div>
+      </div>
+    )}
+        </div>
+      );
+    };
 
 export default HomePage;
