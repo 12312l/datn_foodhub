@@ -33,4 +33,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     @Query("SELECT COALESCE(SUM(oi.quantity), 0) FROM OrderItem oi WHERE oi.product.id = :productId")
     Integer getSoldCount(@Param("productId") Long productId);
+
+    @Query("SELECT p FROM Product p WHERE p.category.id IN " +
+            "(SELECT DISTINCT p2.category.id FROM RecentlyViewed rv JOIN rv.product p2 WHERE rv.user.id = :userId) " +
+            "AND p.id NOT IN (SELECT rv2.product.id FROM RecentlyViewed rv2 WHERE rv2.user.id = :userId)")
+    List<Product> getAIRecommendedProducts(@Param("userId") Long userId, Pageable pageable);
 }

@@ -1,11 +1,17 @@
 package com.website.backend.service.impl;
 
+import com.website.backend.dto.request.AIProductRequest;
+import com.website.backend.dto.request.AIRecommendationRequest;
+import com.website.backend.dto.request.AIUserHistoryRequest;
 import com.website.backend.entity.Product;
 import com.website.backend.repository.CategoryRepository;
 import com.website.backend.repository.ProductRepository;
+import com.website.backend.repository.RecentlyViewedRepository;
 import com.website.backend.service.AIService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -17,7 +23,11 @@ import java.util.stream.Collectors;
 public class AIServiceImpl implements AIService {
 
     private final ProductRepository productRepository;
+    private final RecentlyViewedRepository recentlyViewedRepository;
     private final CategoryRepository categoryRepository;
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    private final String FLASK_URL = "http://localhost:5000/predict_foryou";
 
     @Value("${gemini.api.key}")
     private String geminiApiKey;
@@ -220,5 +230,65 @@ public class AIServiceImpl implements AIService {
         }
 
         return "🤖 **Tôi là trợ lý FoodHub**\n\nHiện tại tôi có thể giúp bạn:\n\n• **Xem thực đơn** - Liệt kê các món ăn\n• **Tìm món** - Tìm kiếm món ăn yêu thích\n• **Gợi ý** - Đề xuất món ngon\n• **Kiểm tra đơn** - Xem trạng thái đơn hàng\n\nBạn cần hỗ trợ gì?";
+    }
+
+    @Override
+    public List<Product> getRecommendations(Long userId) {
+        // 1. Lấy toàn bộ sản phẩm hiện có
+// Trong AIServiceImpl.java
+        List<AIProductRequest> allProducts = productRepository.findAll().stream()
+                .map(p -> AIProductRequest.builder()
+                        .id(p.getId())
+                        .name(p.getName())
+                        // Gộp Description và Ingredients để AI có nhiều dữ liệu so sánh hơn
+                        .description(p.getDescription() + " " + (p.getIngredients() != null ? p.getIngredients() : ""))
+                        .categoryName(p.getCategory() != null ? p.getCategory().getName() : "Khác")
+                        .build())
+                .collect(Collectors.toList());
+
+        // 2. Lấy lịch sử xem (Dùng PageRequest do Repository của bạn trả về Page)
+        List<AIUserHistoryRequest> history = recentlyViewedRepository
+                .findByUserIdOrderByViewedAtDesc(userId, PageRequest.of(0, 20))
+                .getContent()
+                .stream()
+                .map(rv -> new AIUserHistoryRequest(rv.getProduct().getId(), 5))
+                .collect(Collectors.toList());
+
+        if (history.isEmpty()) return Collections.emptyList();
+
+        // 3. Đóng gói gửi sang Python
+        if (history.isEmpty()) return Collections.emptyList();
+
+        AIRecommendationRequest aiRequest = AIRecommendationRequest.builder()
+                .history_prefs(history)
+                .all_products(allProducts)
+                .build();
+
+        try {
+            // FIX 1: Thêm Header JSON để tránh lỗi 415 Unsupported Media Type
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+            org.springframework.http.HttpEntity<AIRecommendationRequest> entity = new org.springframework.http.HttpEntity<>(aiRequest, headers);
+
+            System.out.println("SỐ LƯỢNG SẢN PHẨM GỬI ĐI: " + allProducts.size());
+            System.out.println("SỐ LƯỢNG LỊCH SỬ GỬI ĐI: " + history.size()); // Sửa historyPrefs -> history
+
+            // FIX 2: Gửi 'entity' thay vì 'aiRequest'
+            ResponseEntity<List> response = restTemplate.postForEntity(FLASK_URL, entity, List.class);
+            List<?> recommendedIdsRaw = response.getBody();
+
+            if (recommendedIdsRaw == null) return Collections.emptyList();
+
+            List<Long> ids = recommendedIdsRaw.stream()
+                    .map(id -> Long.valueOf(id.toString()))
+                    .collect(Collectors.toList());
+
+            return productRepository.findAllById(ids);
+
+        } catch (Exception e) {
+            System.err.println("AI Service Error: " + e.getMessage());
+            e.printStackTrace(); // In chi tiết lỗi ra console
+            return Collections.emptyList();
+        }
     }
 }
