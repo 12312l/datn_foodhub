@@ -1,6 +1,9 @@
 package com.website.backend.controller;
 
 import com.website.backend.dto.response.CartItemResponse;
+import com.website.backend.entity.User;
+import com.website.backend.exception.CustomException;
+import com.website.backend.repository.UserRepository;
 import com.website.backend.service.CartService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +20,7 @@ import java.util.Map;
 public class CartController {
 
     private final CartService cartService;
+    private final UserRepository userRepository;
 
     @GetMapping
     public ResponseEntity<List<CartItemResponse>> getCartItems(@AuthenticationPrincipal UserDetails userDetails) {
@@ -69,9 +73,16 @@ public class CartController {
         return ResponseEntity.ok(Map.of("total", total != null ? total : 0.0));
     }
 
-    private Long getUserId(UserDetails userDetails) {
-        // Extract user ID from UserDetails - would need to implement a custom UserDetails
-        // For now, we'll use email to get user ID
-        return 1L; // Default for now - will be fixed with proper implementation
-    }
+//    private Long getUserId(UserDetails userDetails) {
+//        // Extract user ID from UserDetails - would need to implement a custom UserDetails
+//        // For now, we'll use email to get user ID
+//        return 1L; // Default for now - will be fixed with proper implementation
+//    }
+private Long getUserId(UserDetails userDetails) {
+    if (userDetails == null) return null;
+    return userRepository.findByEmail(userDetails.getUsername())
+            .map(User::getId)
+            .orElseThrow(() -> CustomException.notFound("User not found"));
+}
+
 }

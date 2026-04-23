@@ -2,6 +2,9 @@ package com.website.backend.controller;
 
 import com.website.backend.dto.request.OrderRequest;
 import com.website.backend.dto.response.OrderResponse;
+import com.website.backend.entity.User;
+import com.website.backend.exception.CustomException;
+import com.website.backend.repository.UserRepository;
 import com.website.backend.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +26,7 @@ import java.util.Map;
 public class OrderController {
 
     private final OrderService orderService;
+    private final UserRepository userRepository;
 
     @PostMapping
     public ResponseEntity<OrderResponse> createOrder(
@@ -78,8 +82,16 @@ public class OrderController {
         return ResponseEntity.ok(Map.of("url", url));
     }
 
+//    private Long getUserId(UserDetails userDetails) {
+//        // TODO: Extract user ID from JWT properly
+//        return 1L;
+//    }
+
     private Long getUserId(UserDetails userDetails) {
-        // TODO: Extract user ID from JWT properly
-        return 1L;
+        if (userDetails == null) return null;
+        return userRepository.findByEmail(userDetails.getUsername())
+                .map(User::getId)
+                .orElseThrow(() -> CustomException.notFound("User not found"));
     }
+
 }
