@@ -89,12 +89,23 @@ const CheckoutPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 1. KIỂM TRA SỐ ĐIỆN THOẠI (Regex Việt Nam)
+    const vnf_regex = /^(0|84|\+84)(3|5|7|8|9)([0-9]{8})$/;
+    const phoneTrimmed = formData.shippingPhone.trim().replace(/\s/g, ''); // Xóa khoảng trắng
+
+    if (!vnf_regex.test(phoneTrimmed)) {
+      showToast('error', 'Số điện thoại nhận hàng không đúng định dạng Việt Nam!');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
+      // 2. Gửi dữ liệu với số điện thoại đã chuẩn hóa
       const response = await orderAPI.create({
         recipientName: formData.recipientName,
-        shippingPhone: formData.shippingPhone,
+        shippingPhone: phoneTrimmed, // <--- Dùng số đã xóa khoảng trắng
         shippingEmail: formData.shippingEmail,
         shippingAddress: formData.shippingAddress,
         note: formData.note,
@@ -116,17 +127,6 @@ const CheckoutPage: React.FC = () => {
       setIsLoading(false);
     }
   };
-
-  if (items.length === 0) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-500 mb-4">Giỏ hàng trống</p>
-          <a href="/products" className="btn btn-primary">Tiếp tục mua sắm</a>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -162,7 +162,8 @@ const CheckoutPage: React.FC = () => {
                       value={formData.shippingPhone}
                       onChange={(e) => setFormData({ ...formData, shippingPhone: e.target.value })}
                       className="input"
-                      placeholder="Nhập số điện thoại"
+                      placeholder="Ví dụ: 0912345678"
+                      maxLength={12} // Cho phép nhập cả +84 nên để 12
                       required
                     />
                   </div>
