@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { User, ShoppingBag, Heart, Lock, LogOut, Camera, MapPin, Phone, Star } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { userAPI, orderAPI, favoriteAPI, reviewAPI } from '../../services/api';
@@ -274,21 +274,20 @@ const ProfilePage: React.FC = () => {
               {/* Menu */}
               <nav className="p-2">
                 {menuItems.map((item) => (
-                    <button
-                      key={item.key}
-                      onClick={() => {
-                        setActiveTab(item.key as any);
-                        navigate(item.path);
-                      }}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors w-full text-left ${
-                        activeTab === item.key
-                          ? 'bg-primary-50 text-primary-600'
-                          : 'text-gray-600 hover:bg-gray-50'
+                  <button
+                    key={item.key}
+                    onClick={() => {
+                      setActiveTab(item.key as any);
+                      navigate(item.path);
+                    }}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors w-full text-left ${activeTab === item.key
+                        ? 'bg-primary-50 text-primary-600'
+                        : 'text-gray-600 hover:bg-gray-50'
                       }`}
-                    >
-                      <item.icon className="w-5 h-5" />
-                      <span>{item.label}</span>
-                    </button>
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span>{item.label}</span>
+                  </button>
                 ))}
                 <button
                   onClick={logout}
@@ -467,16 +466,26 @@ const ProfilePage: React.FC = () => {
                       </div>
                     </div>
 
+
+
                     <div className="mb-6">
                       <h3 className="font-semibold mb-3">Sản phẩm</h3>
                       <div className="space-y-3">
                         {selectedOrder.items?.map((item) => (
-                          <div key={item.id} className="flex justify-between items-center p-3 border rounded-lg">
+                          <div key={item.id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-gray-50 transition-colors">
                             <div>
-                              <p className="font-medium">{item.productName} x{item.quantity}</p>
+                              {/* Click vào tên sản phẩm để điều hướng về trang chi tiết */}
+                              <Link
+                                to={`/products/${item.productId}`}
+                                className="font-medium text-gray-900 hover:text-primary-600 hover:underline transition-colors block cursor-pointer"
+                              >
+                                {item.productName} x{item.quantity}
+                              </Link>
+
                               {item.variantAttributes && (
                                 <p className="text-xs text-gray-500">{item.variantAttributes}</p>
                               )}
+
                               {canReviewOrder(selectedOrder) && (
                                 <div className="mt-2">
                                   {reviewedProductIds[item.productId] ? (
@@ -500,6 +509,7 @@ const ProfilePage: React.FC = () => {
                         ))}
                       </div>
 
+                      {/* Phần Form Đánh giá giữ nguyên logic của bạn */}
                       {canReviewOrder(selectedOrder) && reviewingProductId && (
                         <div className="mt-4 p-4 border rounded-lg bg-gray-50">
                           <h4 className="font-medium mb-3">Đánh giá sản phẩm</h4>
@@ -519,7 +529,7 @@ const ProfilePage: React.FC = () => {
                             value={reviewComment}
                             onChange={(e) => setReviewComment(e.target.value)}
                             placeholder="Chia sẻ cảm nhận của bạn về món ăn này"
-                            className="w-full border rounded-lg p-2 text-sm min-h-[90px]"
+                            className="w-full border rounded-lg p-2 text-sm min-h-[90px] focus:ring-1 focus:ring-primary-500 outline-none"
                           />
                           <div className="mt-3 flex justify-end gap-2">
                             <button
