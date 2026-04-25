@@ -44,7 +44,7 @@ public class ReviewServiceImpl implements com.website.backend.service.ReviewServ
                 .build();
 
         review = reviewRepository.save(review);
-
+        reviewRepository.flush();
         // Rating is now calculated from product_ratings table
         // No need to update product directly
 
@@ -90,12 +90,13 @@ public class ReviewServiceImpl implements com.website.backend.service.ReviewServ
     }
 
     private ReviewResponse mapToResponse(Review review) {
+        User reviewer = review.getUser();
         return ReviewResponse.builder()
                 .id(review.getId())
                 .productId(review.getProduct().getId())
             .productName(review.getProduct().getName())
                 .userId(review.getUser().getId())
-                .userName(review.getUser().getFullName())
+                .userName(reviewer.getFullName())
                 .rating(review.getRating())
                 .comment(review.getComment())
                 .adminReply(review.getAdminReply())

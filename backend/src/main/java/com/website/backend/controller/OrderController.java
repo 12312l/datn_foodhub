@@ -11,12 +11,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
@@ -94,4 +96,20 @@ public class OrderController {
                 .orElseThrow(() -> CustomException.notFound("User not found"));
     }
 
+    // Trong file OrderController.java
+
+//    @GetMapping("/vnpay-callback")
+//    public ResponseEntity<?> vnpayCallback(@RequestParam Map<String, String> params) {
+//        String responseCode = params.get("vnp_ResponseCode");
+//        String orderId = params.get("vnp_TxnRef"); // Đây là mã đơn hàng bạn gửi đi
+//
+//        // Gọi xuống Service để cập nhật DB
+//        orderService.processPaymentResult(responseCode, orderId);
+//
+//        // Sau khi xử lý xong, điều hướng người dùng về trang thành công của Frontend
+//        // Ví dụ: http://localhost:3000/payment-success
+//        return ResponseEntity.status(HttpStatus.FOUND)
+//                .location(URI.create("http://localhost:3000/order-success?id=" + orderId))
+//                .build();
+//    }
 }

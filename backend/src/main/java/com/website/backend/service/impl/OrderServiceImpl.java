@@ -251,6 +251,25 @@ public class OrderServiceImpl implements com.website.backend.service.OrderServic
         return mapToResponse(orderRepository.save(order));
     }
 
+    // Trong file OrderServiceImpl.java
+//    @Override
+//    @Transactional
+//    public void processPaymentResult(String responseCode, String orderIdRaw) {
+//        // VNPay trả về ID dạng String, mình chuyển về Long
+//        Long orderId = Long.parseLong(orderIdRaw);
+//
+//        Order order = orderRepository.findById(orderId)
+//                .orElseThrow(() -> CustomException.notFound("Đơn hàng không tồn tại"));
+//
+//        if ("00".equals(responseCode)) {
+//            order.setPaymentStatus(Order.PaymentStatus.PAID);
+//            order.setOrderStatus(Order.OrderStatus.CONFIRMED); // Chuyển sang Chờ xác nhận
+//        } else {
+//            order.setPaymentStatus(Order.PaymentStatus.FAILED);
+//        }
+//        orderRepository.save(order);
+//    }
+
     @Override
     @Transactional
     public OrderResponse updateOrder(Long orderId, OrderRequest request) {

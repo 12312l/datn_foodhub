@@ -2,6 +2,9 @@ package com.website.backend.controller;
 
 import com.website.backend.dto.request.ReviewRequest;
 import com.website.backend.dto.response.ReviewResponse;
+import com.website.backend.entity.User;
+import com.website.backend.exception.CustomException;
+import com.website.backend.repository.UserRepository;
 import com.website.backend.service.ReviewService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 public class ReviewController {
 
     private final ReviewService reviewService;
+    private final UserRepository userRepository;
 
     @PostMapping("/product/{productId}")
     public ResponseEntity<ReviewResponse> createReview(
@@ -53,7 +57,12 @@ public class ReviewController {
         return ResponseEntity.noContent().build();
     }
 
+    // Sửa hàm này ở cuối file Controller
     private Long getUserId(UserDetails userDetails) {
-        return 1L;
-    }
-}
+        if (userDetails == null) return null;
+
+        // Đừng để return 1L; ở đây nữa!
+        return userRepository.findByEmail(userDetails.getUsername())
+                .map(User::getId)
+                .orElseThrow(() -> CustomException.notFound("User not found"));
+    }}
