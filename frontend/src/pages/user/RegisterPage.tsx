@@ -26,20 +26,38 @@ const RegisterPage: React.FC = () => {
     e.preventDefault();
     setError('');
 
+    // 1. Kiểm tra mật khẩu khớp
     if (formData.password !== formData.confirmPassword) {
-      setError('Mật khẩu không khớp');
+      setError('Mật khẩu xác nhận không khớp');
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError('Mật khẩu phải có ít nhất 6 ký tự');
+    // 2. Kiểm tra độ dài mật khẩu
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(formData.password)) {
+      setError('Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt (@$!%*?&)');
+      return;
+    }
+
+    // 3. KIỂM TRA SỐ ĐIỆN THOẠI VIỆT NAM (Regex)
+    // Regex này chấp nhận: 0x, 84x, +84x với các đầu số di động hiện nay
+    const vnf_regex = /^(0|84|\+84)(3|5|7|8|9)([0-9]{8})$/;
+    const phoneTrimmed = formData.phone.trim().replace(/\s/g, ''); // Loại bỏ khoảng trắng nếu khách nhập nhầm
+
+    if (!vnf_regex.test(phoneTrimmed)) {
+      setError('Số điện thoại không đúng định dạng Việt Nam (ví dụ: 0912345678)');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      await register(formData);
+      // Gửi dữ liệu đã được chuẩn hóa số điện thoại
+      await register({
+        ...formData,
+        phone: phoneTrimmed
+      });
+
       alert('Đăng ký thành công! Vui lòng xác thực email.');
       navigate('/verify-email', { state: { email: formData.email } });
     } catch (err: any) {
