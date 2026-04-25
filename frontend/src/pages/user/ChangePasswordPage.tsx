@@ -43,17 +43,32 @@ const ChangePasswordPage: React.FC = () => {
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 1. Kiểm tra mật khẩu mới và cũ có trùng nhau không
+    if (passwordData.oldPassword === passwordData.newPassword) {
+      showToast('error', 'Mật khẩu mới không được trùng với mật khẩu cũ');
+      return;
+    }
+
+    // 2. Kiểm tra mật khẩu mới và xác nhận mật khẩu có khớp không
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      showToast('error', 'Mật khẩu mới không khớp');
+      showToast('error', 'Mật khẩu xác nhận không khớp');
       return;
     }
-    if (passwordData.newPassword.length < 6) {
-      showToast('error', 'Mật khẩu mới phải có ít nhất 6 ký tự');
+
+    // 3. Regex kiểm tra độ mạnh mật khẩu
+    // Ít nhất 8 ký tự, 1 chữ hoa, 1 chữ thường, 1 số, 1 ký tự đặc biệt
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+    if (!passwordRegex.test(passwordData.newPassword)) {
+      showToast('error', 'Mật khẩu mới phải từ 8 ký tự, gồm chữ hoa, thường, số và ký tự đặc biệt (@$!%*?&)');
       return;
     }
+
     try {
       await userAPI.changePassword(passwordData);
       showToast('success', 'Đổi mật khẩu thành công!');
+      // Reset form sau khi đổi thành công
       setPasswordData({ oldPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error: any) {
       showToast('error', error.response?.data?.message || 'Đổi mật khẩu thất bại');
@@ -92,11 +107,10 @@ const ChangePasswordPage: React.FC = () => {
                   <Link
                     key={item.path}
                     to={item.path}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                      item.path === '/profile/change-password'
-                        ? 'bg-primary-50 text-primary-600'
-                        : 'text-gray-600 hover:bg-gray-50'
-                    }`}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${item.path === '/profile/change-password'
+                      ? 'bg-primary-50 text-primary-600'
+                      : 'text-gray-600 hover:bg-gray-50'
+                      }`}
                   >
                     <item.icon className="w-5 h-5" />
                     <span>{item.label}</span>
@@ -141,6 +155,10 @@ const ChangePasswordPage: React.FC = () => {
                       required
                       placeholder="Nhập mật khẩu mới"
                     />
+                    {/* Thêm dòng hướng dẫn này */}
+                    <p className="text-[10px] text-gray-500 mt-1">
+                      * Tối thiểu 8 ký tự, bao gồm chữ hoa, thường, số và ký tự đặc biệt (@$!%*?&).
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Xác nhận mật khẩu mới</label>
