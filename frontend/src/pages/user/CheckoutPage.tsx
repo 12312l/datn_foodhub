@@ -49,26 +49,59 @@ const CheckoutPage: React.FC = () => {
     loadShippingSetting();
   }, []);
 
+  // useEffect(() => {
+  //   const params = new URLSearchParams(location.search);
+  //   const txnRef = params.get('vnp_TxnRef');
+
+  //   if (!txnRef || isHandlingVNPayReturn) {
+  //     return;
+  //   }
+
+  //   const responseCode = params.get('vnp_ResponseCode');
+  //   setIsHandlingVNPayReturn(true);
+
+  //   if (responseCode === '00') {
+  //     showToast('success', 'Thanh toán VNPay thành công!');
+  //     void clearCart().finally(() => {
+  //       navigate('/profile/orders', { replace: true });
+  //     });
+  //     return;
+  //   }
+
+  //   showToast('error', `Thanh toán VNPay thất bại (mã: ${responseCode || 'N/A'})`);
+  //   navigate('/checkout', { replace: true });
+  // }, [location.search, isHandlingVNPayReturn, showToast, clearCart, navigate]);
+
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const txnRef = params.get('vnp_TxnRef');
 
-    if (!txnRef || isHandlingVNPayReturn) {
-      return;
-    }
+    if (!txnRef || isHandlingVNPayReturn) return;
 
     const responseCode = params.get('vnp_ResponseCode');
     setIsHandlingVNPayReturn(true);
 
     if (responseCode === '00') {
-      showToast('success', 'Thanh toán VNPay thành công!');
-      void clearCart().finally(() => {
+      // THÊM BƯỚC NÀY: Gọi API lấy chi tiết đơn hàng để chắc chắn Backend đã xử lý xong
+      orderAPI.getById(Number(txnRef)).then((res) => {
+        if (res.data.paymentStatus === 'PAID') {
+          showToast('success', 'Thanh toán thành công và đơn hàng đã được cập nhật!');
+          void clearCart().finally(() => {
+            navigate('/profile/orders', { replace: true });
+          });
+        } else {
+          // Trường hợp Backend chưa kịp cập nhật (độ trễ mạng)
+          showToast('info', 'Thanh toán thành công! Đang cập nhật trạng thái đơn hàng...');
+          setTimeout(() => navigate('/profile/orders', { replace: true }), 2000);
+        }
+      }).catch(() => {
+        // Nếu lỗi API vẫn cho về trang đơn hàng để khách tự kiểm tra
         navigate('/profile/orders', { replace: true });
       });
       return;
     }
 
-    showToast('error', `Thanh toán VNPay thất bại (mã: ${responseCode || 'N/A'})`);
+    showToast('error', `Thanh toán thất bại hoặc đã bị hủy (Mã: ${responseCode})`);
     navigate('/checkout', { replace: true });
   }, [location.search, isHandlingVNPayReturn, showToast, clearCart, navigate]);
 

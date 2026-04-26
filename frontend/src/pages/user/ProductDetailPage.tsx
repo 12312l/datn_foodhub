@@ -27,43 +27,6 @@ const ProductDetailPage: React.FC = () => {
     loadProduct();
   }, [id, isAuthenticated]);
 
-  // const loadProduct = async () => {
-  //   setIsLoading(true);
-  //   try {
-  //     const [productRes, reviewsRes] = await Promise.all([
-  //       productAPI.getById(parseInt(id!)),
-  //       reviewAPI.getByProduct(parseInt(id!), { page: 0, size: 10 }),
-  //     ]);
-  //     setProduct(productRes.data);
-  //     setReviews(reviewsRes.data.content);
-
-  //     if (productRes.data.variants && productRes.data.variants.length > 0) {
-  //       const defaultIndex = productRes.data.variants.findIndex((v: ProductVariant) => v.isDefault);
-  //       setSelectedVariantIndex(defaultIndex >= 0 ? defaultIndex : 0);
-  //     }
-
-  //     // Check if product is favorite
-  //     if (isAuthenticated) {
-  //       try {
-  //         const favRes = await favoriteAPI.check(parseInt(id!));
-  //         setIsFavorite(favRes.data);
-  //       } catch (e) {
-  //         // User not logged in or error
-  //       }
-  //     }
-
-  //     // Load related products
-  //     if (productRes.data.categoryId) {
-  //       const relatedRes = await productAPI.getByCategory(productRes.data.categoryId, { page: 0, size: 4 });
-  //       setRelatedProducts(relatedRes.data.content.filter((p: Product) => p.id !== parseInt(id!)));
-  //     }
-  //   } catch (error) {
-  //     console.error('Error loading product:', error);
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
-
   const loadProduct = async () => {
     setIsLoading(true);
     try {
@@ -98,7 +61,7 @@ const ProductDetailPage: React.FC = () => {
         try {
           const favRes = await favoriteAPI.check(parseInt(id!));
           setIsFavorite(favRes.data);
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // Load related products
@@ -112,7 +75,7 @@ const ProductDetailPage: React.FC = () => {
       setIsLoading(false);
     }
   };
-  
+
   const handleAddToCart = async () => {
     if (product) {
       const selectedVariant = product.variants?.[selectedVariantIndex];
@@ -248,9 +211,8 @@ const ProductDetailPage: React.FC = () => {
                   <button
                     key={index}
                     onClick={() => setSelectedImageIndex(index)}
-                    className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 ${
-                      selectedImageIndex === index ? 'border-primary-500' : 'border-gray-200'
-                    }`}
+                    className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 ${selectedImageIndex === index ? 'border-primary-500' : 'border-gray-200'
+                      }`}
                   >
                     {img.type === 'VIDEO' ? (
                       <video src={img.url} className="w-full h-full object-cover" />
@@ -294,11 +256,10 @@ const ProductDetailPage: React.FC = () => {
                     <button
                       key={variant.id || index}
                       onClick={() => setSelectedVariantIndex(index)}
-                      className={`px-3 py-2 border rounded-lg text-sm ${
-                        selectedVariantIndex === index
-                          ? 'border-primary-500 text-primary-600 bg-primary-50'
-                          : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                      }`}
+                      className={`px-3 py-2 border rounded-lg text-sm ${selectedVariantIndex === index
+                        ? 'border-primary-500 text-primary-600 bg-primary-50'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
                     >
                       {(variant.attributes || []).find((attr) => attr.name === primaryAttributeName)?.value || variant.name}
                     </button>
@@ -334,11 +295,10 @@ const ProductDetailPage: React.FC = () => {
               {/* Favorite button */}
               <button
                 onClick={handleToggleFavorite}
-                className={`p-3 rounded-lg border transition-colors ${
-                  isFavorite
-                    ? 'bg-red-50 border-red-300 text-red-500'
-                    : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                }`}
+                className={`p-3 rounded-lg border transition-colors ${isFavorite
+                  ? 'bg-red-50 border-red-300 text-red-500'
+                  : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                  }`}
                 title="Yêu thích"
               >
                 <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />

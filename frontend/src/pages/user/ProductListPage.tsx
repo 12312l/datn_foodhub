@@ -38,22 +38,53 @@ const ProductListPage: React.FC = () => {
     }
   };
 
+  // const loadProducts = async () => {
+  //   setIsLoading(true);
+  //   try {
+  //     const params: any = {
+  //       page: currentPage,
+  //       size: 12,
+  //       sortBy: filters.sortBy,
+  //       sortDir: filters.sortDir,
+  //     };
+
+  //     let response;
+  //     if (filters.search) {
+  //       response = await productAPI.search(filters.search, params);
+  //     } else if (filters.category) {
+  //       response = await productAPI.getByCategory(parseInt(filters.category), params);
+  //     } else {
+  //       response = await productAPI.getAll(params);
+  //     }
+
+  //     setProducts(response.data.content);
+  //     setTotalPages(response.data.totalPages);
+  //   } catch (error) {
+  //     console.error('Error loading products:', error);
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
+
   const loadProducts = async () => {
     setIsLoading(true);
     try {
-      const params: any = {
+      // Đảm bảo tên key (sortBy, sortDir) khớp 100% với @RequestParam bên Java
+      const params = {
         page: currentPage,
         size: 12,
-        sortBy: filters.sortBy,
-        sortDir: filters.sortDir,
+        sortBy: filters.sortBy, // ví dụ: 'price'
+        sortDir: filters.sortDir, // ví dụ: 'asc'
       };
 
       let response;
       if (filters.search) {
+        // Kiểm tra xem hàm search trong api.ts có nhận params làm tham số thứ 2 không
         response = await productAPI.search(filters.search, params);
       } else if (filters.category) {
         response = await productAPI.getByCategory(parseInt(filters.category), params);
       } else {
+        // Đối với getAll, truyền trực tiếp object params
         response = await productAPI.getAll(params);
       }
 
@@ -128,8 +159,14 @@ const ProductListPage: React.FC = () => {
               value={`${filters.sortBy}-${filters.sortDir}`}
               onChange={(e) => {
                 const [sortBy, sortDir] = e.target.value.split('-');
-                handleFilterChange('sortBy', sortBy);
-                handleFilterChange('sortDir', sortDir);
+
+                // Tạo bản sao mới của params để cập nhật 1 lần duy nhất
+                const params = new URLSearchParams(searchParams);
+                params.set('sortBy', sortBy);
+                params.set('sortDir', sortDir);
+                params.set('page', '0'); // Reset về trang đầu
+
+                setSearchParams(params); // Cập nhật URL 1 lần duy nhất
               }}
               className="input md:w-48"
             >

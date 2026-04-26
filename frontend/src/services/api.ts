@@ -51,30 +51,73 @@ export const authAPI = {
     api.post('/auth/verify', { email, code }),
 };
 
+interface PageParams {
+  page?: number;
+  size?: number;
+  sortBy?: string;
+  sortDir?: string;
+}
 // Products API
 export const productAPI = {
-  getAll: (params?: { page?: number; size?: number; sortBy?: string; sortDir?: string }) =>
+  // Tất cả các hàm lấy danh sách đều phải nhận PageParams
+  getAll: (params?: PageParams) =>
     api.get('/products', { params }),
-  // getById: (id: number) => api.get(`/products/${id}`),
-  // 1. CẬP NHẬT: Thêm userId để Backend ghi nhận lịch sử khi xem chi tiết
-  getById: (id: number, userId?: number) => 
-    api.get(`/products/${id}`, { params: { userId } }),
-  getByCategory: (categoryId: number, params?: { page?: number; size?: number }) =>
-    api.get(`/products/category/${categoryId}`, { params }),
-  getFeatured: (params?: { page?: number; size?: number }) =>
-    api.get('/products/featured', { params }),
-  getNew: (params?: { page?: number; size?: number }) =>
-    api.get('/products/new', { params }),
-  search: (keyword: string, params?: { page?: number; size?: number }) =>
-    api.get('/products/search', { params: { keyword, ...params } }),
-  getTopSelling: (limit?: number) => api.get('/products/top-selling', { params: { limit } }),
-  getTopRated: (limit?: number) => api.get('/products/top-rated', { params: { limit } }),
-  getRecommended: (userId?: number) => api.get('/products/recommended', { params: { userId } }),
 
-  // 2. THÊM MỚI: Lấy danh sách sản phẩm đã xem gần đây
-  getRecentlyViewed: (userId: number, params?: { page?: number; size?: number }) =>
+  getByCategory: (categoryId: number, params?: PageParams) =>
+    api.get(`/products/category/${categoryId}`, { params }),
+
+  getFeatured: (params?: PageParams) =>
+    api.get('/products/featured', { params }),
+
+  getNew: (params?: PageParams) =>
+    api.get('/products/new', { params }),
+
+  search: (keyword: string, params?: PageParams) =>
+    api.get('/products/search', { params: { keyword, ...params } }),
+
+  // Giữ nguyên các hàm đặc thù
+  getById: (id: number, userId?: number) =>
+    api.get(`/products/${id}`, { params: { userId } }),
+
+  getTopSelling: (limit?: number) =>
+    api.get('/products/top-selling', { params: { limit } }),
+
+  getTopRated: (limit?: number) =>
+    api.get('/products/top-rated', { params: { limit } }),
+
+  getRecommended: (userId?: number) =>
+    api.get('/products/recommended', { params: { userId } }),
+
+  getRecentlyViewed: (userId: number, params?: PageParams) =>
     api.get('/products/recently-viewed', { params: { userId, ...params } }),
+
+  // Nên dùng biến api chung của dự án
+  getAIRecommendations: (userId: number) =>
+    api.get(`/ai/recommend/${userId}`),
 };
+// export const productAPI = {
+//   getAll: (params?: { page?: number; size?: number; sortBy?: string; sortDir?: string }) =>
+//     api.get('/products', { params }),
+//   // getById: (id: number) => api.get(`/products/${id}`),
+//   // 1. CẬP NHẬT: Thêm userId để Backend ghi nhận lịch sử khi xem chi tiết
+//   getById: (id: number, userId?: number) => 
+//     api.get(`/products/${id}`, { params: { userId } }),
+//   getByCategory: (categoryId: number, params?: { page?: number; size?: number }) =>
+//     api.get(`/products/category/${categoryId}`, { params }),
+//   getFeatured: (params?: { page?: number; size?: number }) =>
+//     api.get('/products/featured', { params }),
+//   getNew: (params?: { page?: number; size?: number }) =>
+//     api.get('/products/new', { params }),
+//   search: (keyword: string, params?: { page?: number; size?: number }) =>
+//     api.get('/products/search', { params: { keyword, ...params } }),
+//   getTopSelling: (limit?: number) => api.get('/products/top-selling', { params: { limit } }),
+//   getTopRated: (limit?: number) => api.get('/products/top-rated', { params: { limit } }),
+//   getRecommended: (userId?: number) => api.get('/products/recommended', { params: { userId } }),
+
+//   // 2. THÊM MỚI: Lấy danh sách sản phẩm đã xem gần đây
+//   getRecentlyViewed: (userId: number, params?: { page?: number; size?: number }) =>
+//     api.get('/products/recently-viewed', { params: { userId, ...params } }),
+// };
 
 // Admin Products API
 export const adminProductAPI = {
