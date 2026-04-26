@@ -3,10 +3,9 @@ package com.website.backend.service.impl;
 import com.website.backend.dto.request.AIProductRequest;
 import com.website.backend.dto.request.AIRecommendationRequest;
 import com.website.backend.dto.request.AIUserHistoryRequest;
+import com.website.backend.dto.response.ProductResponse;
 import com.website.backend.entity.Product;
-import com.website.backend.repository.CategoryRepository;
-import com.website.backend.repository.ProductRepository;
-import com.website.backend.repository.RecentlyViewedRepository;
+import com.website.backend.repository.*;
 import com.website.backend.service.AIService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,6 +24,8 @@ public class AIServiceImpl implements AIService {
     private final ProductRepository productRepository;
     private final RecentlyViewedRepository recentlyViewedRepository;
     private final CategoryRepository categoryRepository;
+    private final OrderRepository orderRepository;
+    private final FavoriteRepository favoriteRepository;
     private final RestTemplate restTemplate = new RestTemplate();
 
     private final String FLASK_URL = "http://localhost:5000/predict_foryou";
@@ -51,7 +52,6 @@ public class AIServiceImpl implements AIService {
         } else if (intent.equals("menu")) {
             return menuContext;
         }
-
 
 
         // Use Gemini for general response
@@ -126,10 +126,10 @@ public class AIServiceImpl implements AIService {
         if (matchedProduct != null) {
             return String.format(
                     "✅ Tôi đã hiểu bạn muốn đặt: %s (Giá: %s VND)\n\n" +
-                    "Để xác nhận đặt món, vui lòng:\n" +
-                    "1. Thêm vào giỏ hàng trên website\n" +
-                    "2. Tiến hành thanh toán\n\n" +
-                    "Bạn có muốn tôi gợi thêm món khác không?",
+                            "Để xác nhận đặt món, vui lòng:\n" +
+                            "1. Thêm vào giỏ hàng trên website\n" +
+                            "2. Tiến hành thanh toán\n\n" +
+                            "Bạn có muốn tôi gợi thêm món khác không?",
                     matchedProduct.getName(),
                     matchedProduct.getPrice()
             );
@@ -166,10 +166,10 @@ public class AIServiceImpl implements AIService {
 
             String prompt = String.format(
                     "Bạn là trợ lý AI của FoodHub - website đặt đồ ăn. " +
-                    "Hãy trả lời câu hỏi của khách hàng một cách thân thiện và hữu ích.\n\n" +
-                    "Thực đơn hiện tại:\n%s\n\n" +
-                    "Câu hỏi: %s\n\n" +
-                    "Trả lời:",
+                            "Hãy trả lời câu hỏi của khách hàng một cách thân thiện và hữu ích.\n\n" +
+                            "Thực đơn hiện tại:\n%s\n\n" +
+                            "Câu hỏi: %s\n\n" +
+                            "Trả lời:",
                     context, message
             );
 
@@ -233,62 +233,102 @@ public class AIServiceImpl implements AIService {
     }
 
     @Override
-    public List<Product> getRecommendations(Long userId) {
+    public List<ProductResponse> getRecommendations(Long userId) {
         // 1. Lấy toàn bộ sản phẩm hiện có
-// Trong AIServiceImpl.java
         List<AIProductRequest> allProducts = productRepository.findAll().stream()
                 .map(p -> AIProductRequest.builder()
                         .id(p.getId())
                         .name(p.getName())
-                        // Gộp Description và Ingredients để AI có nhiều dữ liệu so sánh hơn
                         .description(p.getDescription() + " " + (p.getIngredients() != null ? p.getIngredients() : ""))
                         .categoryName(p.getCategory() != null ? p.getCategory().getName() : "Khác")
                         .build())
                 .collect(Collectors.toList());
 
-        // 2. Lấy lịch sử xem (Dùng PageRequest do Repository của bạn trả về Page)
-        List<AIUserHistoryRequest> history = recentlyViewedRepository
-                .findByUserIdOrderByViewedAtDesc(userId, PageRequest.of(0, 20))
-                .getContent()
-                .stream()
-                .map(rv -> new AIUserHistoryRequest(rv.getProduct().getId(), 5))
-                .collect(Collectors.toList());
+        // 2. Gộp 3 nguồn dữ liệu: Mua, Thích, Xem vào một danh sách history duy nhất
+        List<AIUserHistoryRequest> history = new ArrayList<>();
 
-        if (history.isEmpty()) return Collections.emptyList();
+        // --- Mua hàng (Trọng số 5) ---
+        orderRepository.findByUserId(userId, PageRequest.of(0, 100)).getContent().forEach(order ->
+                order.getOrderItems().forEach(item ->
+                        history.add(new AIUserHistoryRequest(item.getProduct().getId(), 5.0))));
+
+        // --- Yêu thích (Trọng số 3) ---
+        favoriteRepository.findByUserId(userId).forEach(fav ->
+                history.add(new AIUserHistoryRequest(fav.getProduct().getId(), 3.0)));
+
+        // --- Đã xem (Trọng số 1) ---
+        recentlyViewedRepository.findByUserIdOrderByViewedAtDesc(userId, PageRequest.of(0, 20))
+                .getContent()
+                .forEach(rv -> history.add(new AIUserHistoryRequest(rv.getProduct().getId(), 1.0)));
+
+        if (history.isEmpty()) {
+            System.out.println("User " + userId + " chưa có hành vi nào để gợi ý.");
+            return Collections.emptyList();
+        }
 
         // 3. Đóng gói gửi sang Python
-        if (history.isEmpty()) return Collections.emptyList();
-
         AIRecommendationRequest aiRequest = AIRecommendationRequest.builder()
                 .history_prefs(history)
                 .all_products(allProducts)
                 .build();
 
+        List<Long> ids;
         try {
-            // FIX 1: Thêm Header JSON để tránh lỗi 415 Unsupported Media Type
             org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
             headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
             org.springframework.http.HttpEntity<AIRecommendationRequest> entity = new org.springframework.http.HttpEntity<>(aiRequest, headers);
 
-            System.out.println("SỐ LƯỢNG SẢN PHẨM GỬI ĐI: " + allProducts.size());
-            System.out.println("SỐ LƯỢNG LỊCH SỬ GỬI ĐI: " + history.size()); // Sửa historyPrefs -> history
+            System.out.println(">>> Đang gọi AI cho User: " + userId);
+            System.out.println(">>> Tổng số tương tác (Mua/Thích/Xem): " + history.size());
 
-            // FIX 2: Gửi 'entity' thay vì 'aiRequest'
             ResponseEntity<List> response = restTemplate.postForEntity(FLASK_URL, entity, List.class);
             List<?> recommendedIdsRaw = response.getBody();
 
             if (recommendedIdsRaw == null) return Collections.emptyList();
 
-            List<Long> ids = recommendedIdsRaw.stream()
+            ids = recommendedIdsRaw.stream()
                     .map(id -> Long.valueOf(id.toString()))
                     .collect(Collectors.toList());
 
-            return productRepository.findAllById(ids);
+            // --- ĐOẠN SỬA QUAN TRỌNG NHẤT Ở ĐÂY ---
+            List<Product> products = productRepository.findAllById(ids);
+
 
         } catch (Exception e) {
-            System.err.println("AI Service Error: " + e.getMessage());
-            e.printStackTrace(); // In chi tiết lỗi ra console
+            System.err.println("!!! AI Service Error: " + e.getMessage());
+            e.printStackTrace(); // In ra lỗi chi tiết nếu có
             return Collections.emptyList();
         }
+
+        List<Product> products = productRepository.findAllById(ids);
+
+        return products.stream().map(p -> {
+            // 1. Lấy ảnh đầu tiên từ danh sách media của Duy
+            String firstImageUrl = (p.getMedia() != null && !p.getMedia().isEmpty())
+                    ? p.getMedia().get(0).getMediaUrl()
+                    : null;
+
+            // 2. Map sang DTO ProductResponse (Sẽ không bao giờ bị lặp JSON)
+            return ProductResponse.builder()
+                    .id(p.getId())
+                    .name(p.getName())
+                    .description(p.getDescription())
+                    .price(p.getPrice()) // Giá sau giảm hoặc giá gốc tùy logic của Duy
+                    .originalPrice(p.getPrice())
+                    .discount(p.getDiscount())
+                    .imageUrl(firstImageUrl) // TRỌNG TÂM: Ảnh sản phẩm hiện ở đây
+                    .categoryId(p.getCategory() != null ? p.getCategory().getId() : null)
+                    .categoryName(p.getCategory() != null ? p.getCategory().getName() : null)
+                    .ingredients(p.getIngredients())
+                    .isAvailable(p.getIsAvailable())
+                    .isFeatured(p.getIsFeatured())
+                    .isNew(p.getIsNew())
+                    .stock(p.getStock())
+                    // Các trường như rating/soldCount nếu chưa có logic tính thì để mặc định
+                    .rating(java.math.BigDecimal.valueOf(0))
+                    .soldCount(0)
+                    .createdAt(p.getCreatedAt())
+                    .build();
+        }).collect(Collectors.toList());
     }
 }

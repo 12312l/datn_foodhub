@@ -8,5 +8,5 @@ import lombok.*;
 @Builder
 public class AIUserHistoryRequest {
     private Long id;   // Đây là product_id
-    private int score; // Trọng số sở thích (ví dụ: món đã xem cho 5 điểm)
+    private Double score; // Trọng số sở thích (ví dụ: món đã xem cho 5 điểm)
 }

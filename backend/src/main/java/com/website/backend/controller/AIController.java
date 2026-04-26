@@ -1,5 +1,6 @@
 package com.website.backend.controller;
 
+import com.website.backend.dto.response.ProductResponse;
 import com.website.backend.entity.Product;
 import com.website.backend.repository.ProductRepository;
 import com.website.backend.service.AIService;
@@ -8,6 +9,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -31,22 +33,24 @@ public class AIController {
     }
 
     @GetMapping("/recommend/{userId}")
-    public ResponseEntity<List<Product>> getRecommendations(@PathVariable Long userId) {
+// Đổi List<Product> thành List<ProductResponse> ở đây
+    public ResponseEntity<List<ProductResponse>> getRecommendations(@PathVariable Long userId) {
         try {
-            // Log để kiểm tra xem API có được gọi vào không
             System.out.println("Đang test gợi ý cho User ID: " + userId);
 
-            List<Product> recommendations = aiService.getRecommendations(userId);
+            // Gọi service lấy về List DTO "sạch"
+            List<ProductResponse> recommendations = aiService.getRecommendations(userId);
 
-            // Mẹo test: Nếu mảng rỗng, lấy đại vài món trong DB ra để chắc chắn API vẫn sống
             if (recommendations == null || recommendations.isEmpty()) {
                 System.out.println("AI trả về rỗng, đang lấy dữ liệu mẫu...");
-                return ResponseEntity.ok(productRepository.findAll(PageRequest.of(0, 5)).getContent());
+                // Chỗ này Duy cũng phải map sang ProductResponse nếu muốn lấy mẫu,
+                // hoặc tạm thời return một list rỗng để tránh lỗi kiểu dữ liệu:
+                return ResponseEntity.ok(new ArrayList<>());
             }
 
             return ResponseEntity.ok(recommendations);
         } catch (Exception e) {
-            e.printStackTrace(); // In lỗi chi tiết ra console IntelliJ
+            e.printStackTrace();
             return ResponseEntity.status(500).build();
         }
     }
