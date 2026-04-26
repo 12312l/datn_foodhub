@@ -19,8 +19,11 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -97,19 +100,33 @@ public class OrderController {
     }
 
     // Trong file OrderController.java
+    @GetMapping("/vnpay-callback")
+    public ResponseEntity<?> vnpayCallback(@RequestParam Map<String, String> params) {
+        String responseCode = params.get("vnp_ResponseCode");
+        String orderId = params.get("vnp_TxnRef");
 
-//    @GetMapping("/vnpay-callback")
-//    public ResponseEntity<?> vnpayCallback(@RequestParam Map<String, String> params) {
-//        String responseCode = params.get("vnp_ResponseCode");
-//        String orderId = params.get("vnp_TxnRef"); // Đây là mã đơn hàng bạn gửi đi
-//
-//        // Gọi xuống Service để cập nhật DB
-//        orderService.processPaymentResult(responseCode, orderId);
-//
-//        // Sau khi xử lý xong, điều hướng người dùng về trang thành công của Frontend
-//        // Ví dụ: http://localhost:3000/payment-success
-//        return ResponseEntity.status(HttpStatus.FOUND)
-//                .location(URI.create("http://localhost:3000/order-success?id=" + orderId))
-//                .build();
-//    }
+        // Backend cập nhật Database
+        orderService.processPaymentResult(responseCode, orderId);
+
+        // Xây dựng URL an toàn (đã qua mã hóa ký tự đặc biệt)
+        String frontendUrl = "http://localhost:3005/checkout/return?" + buildQueryString(params);
+
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(URI.create(frontendUrl))
+                .build();
+    }
+
+    // SỬA LẠI HÀM NÀY ĐỂ MÃ HÓA KÝ TỰ
+    private String buildQueryString(Map<String, String> params) {
+        return params.entrySet().stream()
+                .map(e -> {
+                    try {
+                        // Mã hóa giá trị để biến khoảng trắng thành %20 hoặc +
+                        return e.getKey() + "=" + URLEncoder.encode(e.getValue(), StandardCharsets.UTF_8.toString());
+                    } catch (Exception ex) {
+                        return e.getKey() + "=" + e.getValue();
+                    }
+                })
+                .collect(Collectors.joining("&"));
+    }
 }

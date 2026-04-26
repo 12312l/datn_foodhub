@@ -17,4 +17,7 @@ public interface OrderService {
     void deleteOrder(Long orderId);
     OrderResponse cancelOrder(Long orderId, Long userId);
     String createVNPayUrl(Long orderId);
+
+    // Thêm hàm xử lý kết quả thanh toán vào đây
+    void processPaymentResult(String responseCode, String orderId);
 }

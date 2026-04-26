@@ -251,24 +251,38 @@ public class OrderServiceImpl implements com.website.backend.service.OrderServic
         return mapToResponse(orderRepository.save(order));
     }
 
-    // Trong file OrderServiceImpl.java
-//    @Override
-//    @Transactional
-//    public void processPaymentResult(String responseCode, String orderIdRaw) {
-//        // VNPay trả về ID dạng String, mình chuyển về Long
-//        Long orderId = Long.parseLong(orderIdRaw);
-//
-//        Order order = orderRepository.findById(orderId)
-//                .orElseThrow(() -> CustomException.notFound("Đơn hàng không tồn tại"));
-//
-//        if ("00".equals(responseCode)) {
-//            order.setPaymentStatus(Order.PaymentStatus.PAID);
-//            order.setOrderStatus(Order.OrderStatus.CONFIRMED); // Chuyển sang Chờ xác nhận
-//        } else {
-//            order.setPaymentStatus(Order.PaymentStatus.FAILED);
-//        }
-//        orderRepository.save(order);
-//    }
+//     Trong file OrderServiceImpl.java
+@Override
+@Transactional
+public void processPaymentResult(String responseCode, String orderIdRaw) {
+    try {
+        // 1. Chuyển đổi ID an toàn
+        Long orderId = Long.parseLong(orderIdRaw);
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> CustomException.notFound("Đơn hàng không tồn tại: " + orderId));
+
+        // 2. Kiểm tra nếu đơn hàng đã được xử lý thanh toán trước đó (tránh trùng lặp)
+        if (order.getPaymentStatus() == Order.PaymentStatus.PAID) {
+            return;
+        }
+
+        // 3. Cập nhật trạng thái dựa trên ResponseCode
+        if ("00".equals(responseCode)) {
+            order.setPaymentStatus(Order.PaymentStatus.PAID);
+            order.setOrderStatus(Order.OrderStatus.CONFIRMED);
+        } else {
+            order.setPaymentStatus(Order.PaymentStatus.FAILED);
+            // Có thể giữ nguyên OrderStatus là PENDING để khách tìm cách thanh toán lại
+        }
+
+        orderRepository.save(order);
+
+    } catch (NumberFormatException e) {
+        // Log lỗi nếu ID không phải là số
+        throw CustomException.badRequest("Định dạng mã đơn hàng không hợp lệ");
+    }
+}
 
     @Override
     @Transactional
@@ -336,7 +350,8 @@ public class OrderServiceImpl implements com.website.backend.service.OrderServic
         calendar.add(java.util.Calendar.MINUTE, 30);
         Date expireDate = calendar.getTime();
 
-        String txnRef = String.valueOf(order.getId()) + System.currentTimeMillis();
+//        String txnRef = String.valueOf(order.getId()) + System.currentTimeMillis();
+        String txnRef = String.valueOf(order.getId());
         if (txnRef.length() > 34) {
             txnRef = txnRef.substring(0, 34);
         }
