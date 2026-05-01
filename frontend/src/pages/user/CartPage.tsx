@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Minus, Plus, Trash2, ShoppingCart } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingCart, Clock } from 'lucide-react'; // Thêm icon Clock
 import { useCart } from '../../context/CartContext';
 import { shippingSettingsAPI } from '../../services/api';
 import { ShippingSetting } from '../../types';
@@ -20,6 +20,24 @@ const CartPage: React.FC = () => {
     };
     loadShippingSetting();
   }, []);
+
+  // ✅ LOGIC TÍNH THỜI GIAN CHẾ BIẾN DỰ KIẾN (Giống logic Backend Duy đã làm)
+  const calculatePrepTime = () => {
+    if (items.length === 0) return 0;
+
+    // 1. Tìm món lâu nhất (Duy cần đảm bảo item trong CartContext có trường preparationTime)
+    const maxBasePrepTime = Math.max(...items.map(item => item.preparationTime || 15));
+
+    // 2. Tính tổng số lượng món
+    const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+
+    // 3. Công thức: Món lâu nhất + (Tổng số lượng - 1) * 2 phút
+    let finalPrepTime = maxBasePrepTime + (totalQuantity - 1) * 2;
+
+    return Math.min(finalPrepTime, 120); // Giới hạn tối đa 120p
+  };
+
+  const estimatedPrepTime = calculatePrepTime();
 
   const baseFee = shippingSetting?.baseFee ?? 15000;
   const freeShippingThreshold = shippingSetting?.freeShippingThreshold ?? 100000;
@@ -67,6 +85,8 @@ const CartPage: React.FC = () => {
                   <p className="text-primary-500 font-bold">
                     {item.productPrice.toLocaleString('vi-VN')} đ
                   </p>
+                  {/* Hiển thị thời gian chế biến riêng của từng món (nếu muốn) */}
+                  <p className="text-[10px] text-gray-400">⏱ Chế biến: {item.preparationTime || 15}p</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -100,6 +120,13 @@ const CartPage: React.FC = () => {
           <div className="lg:col-span-1">
             <div className="card sticky top-24">
               <h2 className="text-lg font-bold mb-4">Tổng quan đơn hàng</h2>
+
+              {/* ✅ HIỂN THỊ THỜI GIAN CHẾ BIẾN TỔNG TẠI ĐÂY */}
+              <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-100 rounded-lg mb-4 text-orange-700 text-sm">
+                <Clock className="w-4 h-4" />
+                <span>Thời gian chuẩn bị dự kiến: <strong>~{estimatedPrepTime} phút</strong></span>
+              </div>
+
               <div className="space-y-2 mb-4">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Tạm tính</span>

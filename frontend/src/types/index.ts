@@ -58,6 +58,7 @@ export interface ProductVariant {
   salePrice: number;
   stock: number;
   isDefault: boolean;
+  preparationTime: number; // <--- THÊM DÒNG NÀY
   attributes: ProductVariantAttribute[];
 }
 
@@ -85,6 +86,7 @@ export interface CartItem {
   productPrice: number;
   quantity: number;
   subtotal: number;
+  preparationTime?: number; // ✅ Thêm dòng này (dấu ? nghĩa là có thể có hoặc không)
 }
 
 export interface Order {

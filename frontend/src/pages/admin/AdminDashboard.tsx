@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import * as XLSX from 'xlsx';
 
+
 type DashboardStats = {
   totalRevenue: number;
   totalOrders: number;
@@ -78,6 +79,7 @@ const AdminDashboard: React.FC = () => {
   const [filterType, setFilterType] = useState<FilterType>('day');
   const [selectedDate, setSelectedDate] = useState(toDateInputValue(new Date()));
   const [selectedWeek, setSelectedWeek] = useState(getISOWeekValue(new Date()));
+
   const [selectedMonth, setSelectedMonth] = useState(toDateInputValue(new Date()).slice(0, 7));
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [filteredRevenue, setFilteredRevenue] = useState(0);
@@ -107,6 +109,7 @@ const AdminDashboard: React.FC = () => {
     void loadFilteredRevenue();
   }, [filterType, selectedDate, selectedWeek, selectedMonth, selectedYear]);
 
+  
   const loadFilteredRevenue = async () => {
     try {
       if (filterType === 'day') {
@@ -156,6 +159,7 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+
   const filterLabel = useMemo(() => {
     if (filterType === 'day') {
       return `Ngày ${toShortDate(selectedDate)}`;
@@ -170,6 +174,7 @@ const AdminDashboard: React.FC = () => {
     }
     return `Năm ${selectedYear}`;
   }, [filterType, selectedDate, selectedWeek, selectedMonth, selectedYear]);
+
 
   const exportExcel = async () => {
     setIsExporting(true);

@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { adminProductAPI, categoryAPI } from '../../services/api';
 import { Category, ProductImage, ProductVariant } from '../../types';
 import { useToast } from '../../components/user/Toast';
-import { ArrowLeft, Plus, Upload, X, Image as ImageIcon, Video, Star } from 'lucide-react';
+import { ArrowLeft, Plus, Upload, X, Image as ImageIcon, Video, Star, Clock } from 'lucide-react';
 
 interface VariantGroup {
   name: string;
@@ -111,6 +111,7 @@ const ProductFormPage: React.FC = () => {
           salePrice: Number(variant.salePrice) || 0,
           stock: Number(variant.stock) || 0,
           isDefault: Boolean(variant.isDefault),
+          preparationTime: variant.preparationTime || 15, // THÊM DÒNG NÀY
           attributes: (variant.attributes || []).map((attr) => ({
             name: attr.name || '',
             value: attr.value || '',
@@ -197,6 +198,7 @@ const ProductFormPage: React.FC = () => {
         salePrice: 0,
         stock: 0,
         isDefault: prev.length === 0,
+        preparationTime: 15,
         attributes: [{ name: '', value: '' }],
       },
     ]);
@@ -284,6 +286,7 @@ const ProductFormPage: React.FC = () => {
       originalPrice: defaultPrice,
       salePrice: defaultPrice,
       stock: defaultStock,
+      preparationTime: 15, // <--- THÊM DÒNG NÀY (Giá trị mặc định khi sinh ra)
       isDefault: index === 0,
       attributes: combo,
     }));
@@ -714,6 +717,20 @@ const ProductFormPage: React.FC = () => {
                         placeholder="0"
                       />
                     </div>
+                    {/* THÊM Ô THỜI GIAN VÀO ĐÂY */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Thời gian nấu (phút)</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={variant.preparationTime || 15}
+                          onChange={(e) => updateVariantField(variantIndex, 'preparationTime', parseInt(e.target.value) || 0)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg pr-8 focus:ring-2 focus:ring-primary-500"
+                          min="1"
+                        />
+                        <Clock className="w-4 h-4 text-gray-400 absolute right-2 top-1/2 -translate-y-1/2" />
+                      </div>
+                    </div>
                     <label className="flex items-center gap-2 text-sm text-gray-700">
                       <input
                         type="radio"
@@ -797,9 +814,8 @@ const ProductFormPage: React.FC = () => {
               {images.map((img, index) => (
                 <div
                   key={index}
-                  className={`relative rounded-lg overflow-hidden border-2 ${
-                    img.isPrimary ? 'border-primary-500' : 'border-gray-200'
-                  }`}
+                  className={`relative rounded-lg overflow-hidden border-2 ${img.isPrimary ? 'border-primary-500' : 'border-gray-200'
+                    }`}
                 >
                   {img.type === 'VIDEO' ? (
                     <video
