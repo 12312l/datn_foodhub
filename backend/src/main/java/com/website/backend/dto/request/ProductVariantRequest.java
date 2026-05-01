@@ -13,5 +13,6 @@ public class ProductVariantRequest {
     private BigDecimal salePrice;
     private Integer stock = 0;
     private Boolean isDefault = false;
+    private Integer preparationTime;
     private List<ProductVariantAttributeRequest> attributes;
 }

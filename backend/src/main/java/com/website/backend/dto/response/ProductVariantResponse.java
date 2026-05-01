@@ -20,5 +20,6 @@ public class ProductVariantResponse {
     private BigDecimal salePrice;
     private Integer stock;
     private Boolean isDefault;
+    private Integer preparationTime;
     private List<ProductVariantAttributeResponse> attributes;
 }

@@ -47,4 +47,8 @@ public class ProductVariant {
 
     @OneToMany(mappedBy = "variant", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProductVariantAttribute> attributes;
+
+    @Column(name = "preparation_time", nullable = false)
+    @Builder.Default
+    private Integer preparationTime = 15;
 }

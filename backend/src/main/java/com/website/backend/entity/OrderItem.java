@@ -3,6 +3,7 @@ package com.website.backend.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
+import java.time.LocalTime;
 
 @Entity
 @Table(name = "order_items")
@@ -43,4 +44,14 @@ public class OrderItem {
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal subtotal;
+
+    public void validateOrderTime() {
+        LocalTime now = LocalTime.now();
+        LocalTime openTime = LocalTime.of(8, 0);  // 8h sáng
+        LocalTime closeTime = LocalTime.of(22, 0); // 10h tối
+
+        if (now.isBefore(openTime) || now.isAfter(closeTime)) {
+            throw new RuntimeException("Cửa hàng hiện đã đóng cửa. Vui lòng đặt lại vào 8h sáng mai!");
+        }
+    }
 }

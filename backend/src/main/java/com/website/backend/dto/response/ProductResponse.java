@@ -22,6 +22,8 @@ public class ProductResponse {
     private Integer discount;
     private String imageUrl;
     private Long categoryId;
+
+    private Integer preparationTime;
     private String categoryName;
     private String ingredients;
     private Boolean isAvailable;

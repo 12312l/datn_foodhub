@@ -55,7 +55,8 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/api/orders/vnpay-callback"
+                                "/api/orders/vnpay-callback",
+                                "/api/test-map/**"
                         ).permitAll()
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "EMPLOYEE")
                         .anyRequest().authenticated()

@@ -63,6 +63,18 @@ public class Order {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> orderItems;
 
+    @Column(name = "estimated_delivery_time")
+    private LocalDateTime estimatedDeliveryTime; // Thời gian dự kiến giao hàng (ETA)
+
+    @Column(name = "actual_delivery_time")
+    private LocalDateTime actualDeliveryTime; // Thời gian thực tế giao đến nơi
+
+    @Column(name = "note")
+    private String note; // Ghi chú đặc biệt cho bếp (VD: Không hành, ít cay)
+
+    @Column(name = "distance")
+    private Double distance; // Khoảng cách từ quán đến khách (km) - dùng để tính phí ship
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -83,6 +95,6 @@ public class Order {
     }
 
     public enum OrderStatus {
-        PENDING, CONFIRMED, SHIPPING, DELIVERED, CANCELLED
+        PENDING, CONFIRMED, PREPARING, READY, SHIPPING, DELIVERED, CANCELLED
     }
 }

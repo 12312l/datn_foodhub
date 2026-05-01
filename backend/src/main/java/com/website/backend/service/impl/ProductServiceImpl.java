@@ -203,19 +203,74 @@ public class ProductServiceImpl implements com.website.backend.service.ProductSe
         productRepository.deleteById(id);
     }
 
+//    private ProductResponse mapToResponse(Product product) {
+//        List<Review> reviews = reviewRepository.findByProductId(product.getId(), PageRequest.of(0, 5)).getContent();
+//        Long reviewCount = reviewRepository.countByProductId(product.getId());
+//        List<ProductVariant> variants = productVariantRepository.findByProductIdOrderBySortOrderAsc(product.getId());
+//
+//        // Get rating and soldCount from related tables
+//        Double avgRating = productRepository.getAverageRating(product.getId());
+//        Integer soldCount = productRepository.getSoldCount(product.getId());
+//
+//        // Get image from ProductMedia
+//        String imageUrl = getProductImageUrl(product.getId());
+//
+//        // Get all images
+//        List<ProductMedia> mediaList = productMediaRepository.findByProductIdOrderByDisplayOrderAsc(product.getId());
+//        List<ProductImageResponse> images = mediaList.stream()
+//                .map(m -> ProductImageResponse.builder()
+//                        .id(m.getId())
+//                        .url(m.getMediaUrl())
+//                        .isPrimary(m.getIsPrimary())
+//                        .type(m.getMediaType().name())
+//                        .build())
+//                .collect(Collectors.toList());
+//
+//            BigDecimal originalPrice = variants.stream()
+//                .filter(v -> Boolean.TRUE.equals(v.getIsDefault()))
+//                .findFirst()
+//                .or(() -> variants.stream().findFirst())
+//                .map(ProductVariant::getOriginalPrice)
+//                .orElse(product.getPrice());
+//
+//            List<ProductVariantResponse> variantResponses = variants.stream()
+//                .map(this::mapVariantToResponse)
+//                .collect(Collectors.toList());
+//
+//        return ProductResponse.builder()
+//                .id(product.getId())
+//                .name(product.getName())
+//                .description(product.getDescription())
+//                .originalPrice(originalPrice)
+//                .price(product.getPrice())
+//                .discount(product.getDiscount() != null ? product.getDiscount() : 0)
+//                .stock(product.getStock() != null ? product.getStock() : 0)
+//                .imageUrl(imageUrl)
+//                .categoryId(product.getCategory() != null ? product.getCategory().getId() : null)
+//                .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
+//                .ingredients(product.getIngredients())
+//                .isAvailable(product.getIsAvailable())
+//                .isFeatured(product.getIsFeatured())
+//                .isNew(product.getIsNew())
+//                .rating(avgRating != null ? java.math.BigDecimal.valueOf(avgRating) : java.math.BigDecimal.ZERO)
+//                .soldCount(soldCount != null ? soldCount : 0)
+//                .createdAt(product.getCreatedAt())
+//                .reviewCount(reviewCount.intValue())
+//                .reviews(reviews.stream().map(this::mapReviewToResponse).collect(Collectors.toList()))
+//                .images(images)
+//                .variants(variantResponses)
+//                .build();
+//    }
+
     private ProductResponse mapToResponse(Product product) {
         List<Review> reviews = reviewRepository.findByProductId(product.getId(), PageRequest.of(0, 5)).getContent();
         Long reviewCount = reviewRepository.countByProductId(product.getId());
         List<ProductVariant> variants = productVariantRepository.findByProductIdOrderBySortOrderAsc(product.getId());
 
-        // Get rating and soldCount from related tables
         Double avgRating = productRepository.getAverageRating(product.getId());
         Integer soldCount = productRepository.getSoldCount(product.getId());
-
-        // Get image from ProductMedia
         String imageUrl = getProductImageUrl(product.getId());
 
-        // Get all images
         List<ProductMedia> mediaList = productMediaRepository.findByProductIdOrderByDisplayOrderAsc(product.getId());
         List<ProductImageResponse> images = mediaList.stream()
                 .map(m -> ProductImageResponse.builder()
@@ -226,14 +281,18 @@ public class ProductServiceImpl implements com.website.backend.service.ProductSe
                         .build())
                 .collect(Collectors.toList());
 
-            BigDecimal originalPrice = variants.stream()
+        // 1. TÌM BIẾN THỂ MẶC ĐỊNH (Hoặc biến thể đầu tiên nếu không có mặc định)
+        ProductVariant defaultVariant = variants.stream()
                 .filter(v -> Boolean.TRUE.equals(v.getIsDefault()))
                 .findFirst()
                 .or(() -> variants.stream().findFirst())
-                .map(ProductVariant::getOriginalPrice)
-                .orElse(product.getPrice());
+                .orElse(null);
 
-            List<ProductVariantResponse> variantResponses = variants.stream()
+        // 2. LẤY GIÁ GỐC VÀ THỜI GIAN CHẾ BIẾN ĐẠI DIỆN
+        BigDecimal originalPrice = (defaultVariant != null) ? defaultVariant.getOriginalPrice() : product.getPrice();
+        Integer representativePrepTime = (defaultVariant != null) ? defaultVariant.getPreparationTime() : 15;
+
+        List<ProductVariantResponse> variantResponses = variants.stream()
                 .map(this::mapVariantToResponse)
                 .collect(Collectors.toList());
 
@@ -252,6 +311,10 @@ public class ProductServiceImpl implements com.website.backend.service.ProductSe
                 .isAvailable(product.getIsAvailable())
                 .isFeatured(product.getIsFeatured())
                 .isNew(product.getIsNew())
+
+                // 3. GÁN THỜI GIAN CHẾ BIẾN ĐẠI DIỆN VÀO RESPONSE
+                .preparationTime(representativePrepTime)
+
                 .rating(avgRating != null ? java.math.BigDecimal.valueOf(avgRating) : java.math.BigDecimal.ZERO)
                 .soldCount(soldCount != null ? soldCount : 0)
                 .createdAt(product.getCreatedAt())
@@ -263,6 +326,23 @@ public class ProductServiceImpl implements com.website.backend.service.ProductSe
     }
 
     private void saveProductVariants(Product product, List<ProductVariantRequest> variants) {
+        // TRƯỜNG HỢP 1: Nếu không có biến thể nào được gửi lên
+        if (variants == null || variants.isEmpty()) {
+            ProductVariant defaultVariant = ProductVariant.builder()
+                    .product(product)
+                    .name("Suất tiêu chuẩn") // Tên mặc định cho món ăn
+                    .sku(product.getName().substring(0, Math.min(3, product.getName().length())).toUpperCase() + "-DEF")
+                    .originalPrice(product.getPrice()) // Lấy giá từ Product
+                    .salePrice(product.getPrice())
+                    .stock(product.getStock())
+                    .preparationTime(15) // Thời gian mặc định nếu không nhập
+                    .isDefault(true)
+                    .sortOrder(0)
+                    .build();
+            productVariantRepository.save(defaultVariant);
+            return; // Kết thúc hàm luôn
+        }
+
         int order = 0;
         for (ProductVariantRequest variantReq : variants) {
             if (variantReq == null || variantReq.getSalePrice() == null || variantReq.getOriginalPrice() == null) {
@@ -276,6 +356,7 @@ public class ProductServiceImpl implements com.website.backend.service.ProductSe
                     .originalPrice(variantReq.getOriginalPrice())
                     .salePrice(variantReq.getSalePrice())
                     .stock(variantReq.getStock() != null ? variantReq.getStock() : 0)
+                    .preparationTime(variantReq.getPreparationTime() != null ? variantReq.getPreparationTime() : 15)
                     .isDefault(variantReq.getIsDefault() != null ? variantReq.getIsDefault() : false)
                     .sortOrder(order++)
                     .build();
@@ -400,6 +481,7 @@ public class ProductServiceImpl implements com.website.backend.service.ProductSe
                 .salePrice(variant.getSalePrice())
                 .stock(variant.getStock())
                 .isDefault(variant.getIsDefault())
+                .preparationTime(variant.getPreparationTime())
                 .attributes(variant.getAttributes() == null ? List.of() : variant.getAttributes().stream()
                         .map(attr -> ProductVariantAttributeResponse.builder()
                                 .name(attr.getAttributeName())
