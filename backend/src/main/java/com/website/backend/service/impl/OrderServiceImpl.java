@@ -7,6 +7,7 @@ import com.website.backend.entity.*;
 import com.website.backend.exception.CustomException;
 import com.website.backend.repository.*;
 import com.website.backend.service.EmailService;
+import com.website.backend.service.MapService;
 import com.website.backend.service.NotificationService;
 import com.website.backend.service.ShippingSettingService;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
@@ -47,6 +49,7 @@ public class OrderServiceImpl implements com.website.backend.service.OrderServic
     private final EmailService emailService;
     private final NotificationService notificationService;
     private final ShippingSettingService shippingSettingService;
+    private final MapService mapService;
 
     @Value("${vnpay.tmncode}")
     private String vnpayTmnCode;
@@ -70,6 +73,16 @@ public class OrderServiceImpl implements com.website.backend.service.OrderServic
         if (cartItems.isEmpty()) {
             throw CustomException.badRequest("Giỏ hàng trống");
         }
+
+        double distance = mapService.getDistance(request.getShippingAddress());
+        // 2. KIỂM TRA TÍNH HỢP LỆ (Dựa trên quy ước -1 và -2 Duy đã viết ở MapService)
+        if (distance == -1.0) {
+            throw CustomException.badRequest("FoodHub hiện chỉ hỗ trợ giao hàng tại nội thành Hà Nội.");
+        }
+        if (distance == -2.0) {
+            throw CustomException.badRequest("Địa chỉ của bạn quá xa (trên 30km), shop không thể giao đồ ăn.");
+        }
+
 
         // Calculate total
         BigDecimal subtotal = cartItems.stream()
@@ -127,13 +140,22 @@ public class OrderServiceImpl implements com.website.backend.service.OrderServic
             }
         }
 
-        BigDecimal shippingFee = shippingSettingService.calculateShippingFee(subtotal);
+        BigDecimal shippingFee = BigDecimal.valueOf(Math.max(distance * 5000, 15000));
         BigDecimal totalAmount = subtotal.add(shippingFee).subtract(discountAmount);
+
+        // 2. Tính toán thời gian dự kiến (ETA)
+        int preparationTime = 15;        // 15p quán chuẩn bị món
+        int travelTime = (int) Math.ceil(distance * 3); // 3p cho mỗi 1km di chuyển
+        int recipientTime = 7;           // 7p cho khách nhận hàng (gọi điện, đợi khách)
+
+        int totalMinutes = preparationTime + travelTime + recipientTime + preparationTime;
+        java.time.LocalDateTime estimatedTime = java.time.LocalDateTime.now().plusMinutes(totalMinutes);
 
         Order order = Order.builder()
                 .user(user)
                 .totalAmount(totalAmount)
                 .shippingFee(shippingFee)
+                .distance(distance)
                 .shippingAddress(request.getShippingAddress())
                 .shippingPhone(request.getShippingPhone())
                 .recipientName(request.getRecipientName() != null ? request.getRecipientName() : user.getFullName())
@@ -142,6 +164,7 @@ public class OrderServiceImpl implements com.website.backend.service.OrderServic
                 .orderStatus(Order.OrderStatus.PENDING)
                 .couponCode(request.getCouponCode())
                 .discountAmount(discountAmount)
+                .estimatedDeliveryTime(estimatedTime)
                 .build();
 
         order = orderRepository.save(order);
@@ -198,6 +221,28 @@ public class OrderServiceImpl implements com.website.backend.service.OrderServic
         return mapToResponse(order);
     }
 
+    public int calculateEstimatedMinutes(double distance, List<CartItem> cartItems) {
+        // 1. Lấy thời gian chế biến lớn nhất từ danh sách Variant trong giỏ hàng
+        int maxPrepTime = cartItems.stream()
+                .map(item -> {
+                    // Nếu Variant có set thời gian riêng thì lấy, không thì lấy mặc định của Product hoặc 15p
+                    if (item.getVariant() != null && item.getVariant().getPreparationTime() != null) {
+                        return item.getVariant().getPreparationTime();
+                    }
+                    return 15; // Giá trị fallback nếu quên không nhập
+                })
+                .max(Integer::compare)
+                .orElse(15);
+
+        // 2. Tính thời gian di chuyển (3p/km)
+        int travelTime = (int) Math.ceil(distance * 3);
+
+        // 3. Thời gian bàn giao (7p)
+        int recipientTime = 7;
+
+        return maxPrepTime + travelTime + recipientTime;
+    }
+
     private String buildOrderDetails(Order order, List<CartItem> cartItems) {
         StringBuilder sb = new StringBuilder();
         sb.append("Mã đơn hàng: #").append(order.getId()).append("\n");
@@ -246,6 +291,7 @@ public class OrderServiceImpl implements com.website.backend.service.OrderServic
         // Auto-complete payment when order has been delivered.
         if (nextStatus == Order.OrderStatus.DELIVERED) {
             order.setPaymentStatus(Order.PaymentStatus.PAID);
+            order.setActualDeliveryTime(java.time.LocalDateTime.now());
         }
 
         return mapToResponse(orderRepository.save(order));

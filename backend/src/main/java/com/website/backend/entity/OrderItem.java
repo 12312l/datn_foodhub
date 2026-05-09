@@ -48,7 +48,7 @@ public class OrderItem {
     public void validateOrderTime() {
         LocalTime now = LocalTime.now();
         LocalTime openTime = LocalTime.of(8, 0);  // 8h sáng
-        LocalTime closeTime = LocalTime.of(22, 0); // 10h tối
+        LocalTime closeTime = LocalTime.of(23, 0); // 10h tối
 
         if (now.isBefore(openTime) || now.isAfter(closeTime)) {
             throw new RuntimeException("Cửa hàng hiện đã đóng cửa. Vui lòng đặt lại vào 8h sáng mai!");

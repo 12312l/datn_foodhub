@@ -8,10 +8,17 @@ import com.website.backend.entity.Product;
 import com.website.backend.repository.*;
 import com.website.backend.service.AIService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
@@ -19,6 +26,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AIServiceImpl implements AIService {
 
     private final ProductRepository productRepository;
@@ -29,12 +37,19 @@ public class AIServiceImpl implements AIService {
     private final RestTemplate restTemplate = new RestTemplate();
 
     private final String FLASK_URL = "http://localhost:5000/predict_foryou";
+    private final String FLASK_URL_SIMILAR = "http://localhost:5000/predict_similar";
 
     @Value("${gemini.api.key}")
     private String geminiApiKey;
 
     @Value("${gemini.model}")
     private String geminiModel;
+
+    @Value("${groq.api.key}")
+    private String groqApiKey;
+
+    @Value("${groq.model}")
+    private String groqModel;
 
     @Override
     public String chat(Long userId, String message) {
@@ -55,9 +70,76 @@ public class AIServiceImpl implements AIService {
 
 
         // Use Gemini for general response
-        return callGemini(message, menuContext);
+//        return callGemini(message, menuContext);
+        return callAI(message, menuContext);
     }
 
+    private String callAI(String message, String context) {
+        try {
+            // Thử gọi Gemini trước
+            return callGemini(message, context);
+        } catch (Exception e) {
+            System.err.println("Gemini gặp sự cố, đang chuyển sang Groq dự phòng...");
+            try {
+                Thread.sleep(500);
+                // Nếu Gemini lỗi, chuyển sang Groq
+                return callGroq(message, context);
+            } catch (Exception ex) {
+                System.err.println("Cả Gemini và Groq đều lỗi!");
+                // Cuối cùng mới dùng câu trả lời mặc định (Fallback)
+                return getFallbackResponse(message, context);
+//                throw e;
+            }
+        }
+    }
+
+    private String callGroq(String message, String context) {
+        try {
+            if (groqApiKey == null || groqApiKey.isEmpty()) {
+                throw new RuntimeException("Chưa cấu hình Groq API Key");
+            }
+
+            String url = "https://api.groq.com/openai/v1/chat/completions";
+
+            String prompt = String.format(
+                    "Bạn là trợ lý AI của FoodHub. Hãy trả lời thân thiện dựa trên thực đơn này:\n%s\n\nCâu hỏi: %s",
+                    context, message
+            );
+
+            // --- SỬA TẠI ĐÂY: Dùng List.of thay vì Object[] để tạo JSON Array chuẩn ---
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", groqModel);
+            requestBody.put("messages", List.of(
+                    Map.of("role", "user", "content", prompt)
+            ));
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(groqApiKey);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+            // Gửi request
+            ResponseEntity<Map> responseEntity = restTemplate.postForEntity(url, entity, Map.class);
+            Map<String, Object> response = responseEntity.getBody();
+
+            if (response != null && response.containsKey("choices")) {
+                List<Map<String, Object>> choices = (List<Map<String, Object>>) response.get("choices");
+                if (!choices.isEmpty()) {
+                    Map<String, Object> firstChoice = choices.get(0);
+                    Map<String, Object> messageObj = (Map<String, Object>) firstChoice.get("message");
+                    return (String) messageObj.get("content");
+                }
+            }
+
+            throw new RuntimeException("Cấu trúc phản hồi từ Groq không hợp lệ");
+
+        } catch (Exception e) {
+            // In lỗi chi tiết của Groq ra console để debug
+            log.error("Chi tiết lỗi Groq: {}", e.getMessage());
+            throw new RuntimeException("Lỗi khi gọi Groq: " + e.getMessage());
+        }
+    }
     private String buildMenuContext() {
         StringBuilder context = new StringBuilder("📋 THỰC ĐƠN FOODHUB:\n\n");
 
@@ -78,8 +160,14 @@ public class AIServiceImpl implements AIService {
         for (Map.Entry<String, List<Product>> entry : byCategory.entrySet()) {
             context.append("📁 ").append(entry.getKey()).append(":\n");
             for (Product p : entry.getValue()) {
+                // Lấy thời gian chuẩn bị từ variant (ví dụ lấy cái nhanh nhất)
+                Integer minPrepTime = p.getVariants().stream()
+                        .map(v -> v.getPreparationTime())
+                        .filter(t -> t != null)
+                        .min(Integer::compare).orElse(15); // mặc định 15p nếu ko có dữ liệu
                 context.append("• ").append(p.getName())
-                        .append(" - ").append(p.getPrice()).append(" VND\n");
+                        .append(" - ").append(p.getPrice()).append(" VND\n")
+                        .append(" - Thời gian chuẩn bị: ").append(minPrepTime).append(" phút\n");
             }
             context.append("\n");
         }
@@ -155,6 +243,7 @@ public class AIServiceImpl implements AIService {
         return response.toString();
     }
 
+
     private String callGemini(String message, String context) {
         try {
             // Check if API key is configured
@@ -199,14 +288,19 @@ public class AIServiceImpl implements AIService {
                     }
                 }
             }
+            // Nếu response rỗng hoặc không đúng cấu trúc, ném một lỗi để callAI biết
+            throw new RuntimeException("Gemini response không hợp lệ");
 
-            return getFallbackResponse(message, context);
+//            return getFallbackResponse(message, context);
         } catch (Exception e) {
             // SỬA TẠI ĐÂY:
-            e.printStackTrace(); // Dòng này sẽ in chi tiết lỗi ra màn hình Console của IntelliJ/Eclipse
-
-            // Fallback to simple response
-            return getFallbackResponse(message, context);
+//            e.printStackTrace(); // Dòng này sẽ in chi tiết lỗi ra màn hình Console của IntelliJ/Eclipse
+//
+//            // Fallback to simple response
+//            return getFallbackResponse(message, context);
+            log.error("Lỗi Gemini: {}", e.getMessage());
+            // QUAN TRỌNG: Ném lỗi ra ngoài để callAI bắt được và chuyển sang Groq
+            throw e;
         }
     }
 
@@ -330,5 +424,65 @@ public class AIServiceImpl implements AIService {
                     .createdAt(p.getCreatedAt())
                     .build();
         }).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ProductResponse> getSimilarProducts(Long productId) {
+        // 1. Lấy tất cả sản phẩm để AI so sánh nội dung (TF-IDF)
+        List<AIProductRequest> allProducts = getAllProductsForAI();
+
+        // 2. Chuẩn bị dữ liệu gửi sang Flask
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("current_product_id", productId);
+        requestBody.put("all_products", allProducts);
+
+        try {
+            // 3. Gọi API Python (Duy nhớ dùng đúng URL mới)
+            List<?> recommendedIdsRaw = restTemplate.postForObject(FLASK_URL_SIMILAR, requestBody, List.class);
+
+            if (recommendedIdsRaw == null || recommendedIdsRaw.isEmpty()) return new ArrayList<>();
+
+            List<Long> ids = recommendedIdsRaw.stream()
+                    .map(id -> Long.valueOf(id.toString()))
+                    .collect(Collectors.toList());
+
+            // 4. Lấy chi tiết từ DB
+            List<Product> similarProducts = productRepository.findAllById(ids);
+
+            // 5. Trả về danh sách DTO
+            return similarProducts.stream()
+                    .map(this::mapToProductResponse)
+                    .collect(Collectors.toList());
+
+        } catch (Exception e) {
+            log.error("!!! AI Similar Products Error: {}", e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    private List<AIProductRequest> getAllProductsForAI() {
+        return productRepository.findAll().stream()
+                .map(p -> AIProductRequest.builder()
+                        .id(p.getId())
+                        .name(p.getName())
+                        .description(p.getDescription() + " " + (p.getIngredients() != null ? p.getIngredients() : ""))
+                        .categoryName(p.getCategory() != null ? p.getCategory().getName() : "Khác")
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    private ProductResponse mapToProductResponse(Product p) {
+        String firstImageUrl = (p.getMedia() != null && !p.getMedia().isEmpty())
+                ? p.getMedia().get(0).getMediaUrl() : null;
+
+        return ProductResponse.builder()
+                .id(p.getId())
+                .name(p.getName())
+                .description(p.getDescription())
+                .price(p.getPrice())
+                .imageUrl(firstImageUrl)
+                .categoryName(p.getCategory() != null ? p.getCategory().getName() : null)
+                .isAvailable(p.getIsAvailable())
+                .build();
     }
 }

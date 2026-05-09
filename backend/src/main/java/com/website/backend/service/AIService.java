@@ -10,4 +10,7 @@ public interface AIService {
 
     // Chức năng gợi ý món ăn
     List<ProductResponse> getRecommendations(Long userId);
+
+    // ✅ THÊM MỚI: Gợi ý món tương tự (Dựa trên ID sản phẩm đang xem)
+    List<ProductResponse> getSimilarProducts(Long productId);
 }

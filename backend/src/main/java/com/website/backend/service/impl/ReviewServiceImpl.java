@@ -98,6 +98,7 @@ public class ReviewServiceImpl implements com.website.backend.service.ReviewServ
                 .userId(review.getUser().getId())
                 .userName(reviewer.getFullName())
                 .rating(review.getRating())
+                .userAvatar(reviewer.getAvatar())
                 .comment(review.getComment())
                 .adminReply(review.getAdminReply())
                 .repliedAt(review.getRepliedAt())

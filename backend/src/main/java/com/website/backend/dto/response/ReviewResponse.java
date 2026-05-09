@@ -17,6 +17,7 @@ public class ReviewResponse {
     private String productName;
     private Long userId;
     private String userName;
+    private String userAvatar;
     private Integer rating;
     private String comment;
     private String adminReply;

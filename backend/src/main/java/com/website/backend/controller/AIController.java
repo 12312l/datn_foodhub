@@ -5,6 +5,7 @@ import com.website.backend.entity.Product;
 import com.website.backend.repository.ProductRepository;
 import com.website.backend.service.AIService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +18,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/ai")
 @RequiredArgsConstructor
+@Slf4j
 public class AIController {
 
     private final AIService aiService;
@@ -51,6 +53,25 @@ public class AIController {
             return ResponseEntity.ok(recommendations);
         } catch (Exception e) {
             e.printStackTrace();
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    @GetMapping("/similar/{productId}")
+    public ResponseEntity<List<ProductResponse>> getSimilarProducts(@PathVariable Long productId) {
+        try {
+            log.info("Đang gọi AI tìm món tương tự cho Sản phẩm ID: {}", productId);
+
+            List<ProductResponse> similarProducts = aiService.getSimilarProducts(productId);
+
+            if (similarProducts == null || similarProducts.isEmpty()) {
+                log.warn("AI không tìm thấy món nào tương tự cho Sản phẩm: {}", productId);
+                return ResponseEntity.ok(new ArrayList<>());
+            }
+
+            return ResponseEntity.ok(similarProducts);
+        } catch (Exception e) {
+            log.error("Lỗi khi tìm món tương tự cho Sản phẩm {}: {}", productId, e.getMessage());
             return ResponseEntity.status(500).build();
         }
     }

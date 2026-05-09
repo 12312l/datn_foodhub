@@ -41,6 +41,13 @@ public class MapServiceImpl implements MapService {
                     encodedOrigin, encodedDestination, apiKey
             );
 
+            // 🛑 THÊM DÒNG NÀY ĐỂ KIỂM TRA URL
+            System.out.println("🚀 Đang gọi Google API với URL: " + url);
+
+            // Dùng String để lấy nội dung thô thay vì MapResponse để xem lỗi
+            String rawResponse = restTemplate.getForObject(url, String.class);
+            System.out.println("📩 Phản hồi thô từ Google: " + rawResponse);
+
             MapResponse response = restTemplate.getForObject(url, MapResponse.class);
 
             if (response != null && "OK".equals(response.getStatus())) {
